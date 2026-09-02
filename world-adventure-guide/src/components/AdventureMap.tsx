@@ -75,16 +75,16 @@ export default function AdventureMap({
       preferCanvas
       bounds={bounds}
     >
-      {/* Carto Voyager 是一个适合深色主题的低饱和度底图 */}
+      {/* CARTO Positron：浅色低饱和底图，配合白底棕字的复古纸质感 */}
       <TileLayer
         attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png"
+        url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
         maxZoom={19}
       />
-      {/* 地名叠加层（中英文城市名） */}
+      {/* 地名叠加层 */}
       <TileLayer
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png"
-        opacity={0.9}
+        url="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png"
+        opacity={0.95}
       />
 
       {/* 路线 */}
@@ -93,10 +93,10 @@ export default function AdventureMap({
           key={r.id}
           positions={r.path.map((c) => [c.lat, c.lng])}
           pathOptions={{
-            color: '#d4a017',
+            color: '#a8622b',
             weight: 3,
-            opacity: 0.85,
-            dashArray: '1, 8',
+            opacity: 0.9,
+            dashArray: '2, 9',
             lineCap: 'round',
           }}
         >
@@ -145,10 +145,11 @@ export default function AdventureMap({
                   style={{
                     display: 'inline-block',
                     padding: '6px 12px',
-                    background: '#1a2847',
-                    color: '#f1f5f9',
+                    background: 'var(--accent)',
+                    color: '#fff7ec',
                     borderRadius: 6,
                     fontSize: 13,
+                    textDecoration: 'none',
                   }}
                 >
                   探索此地 →

@@ -168,9 +168,9 @@ export default function CreateAdventurePage() {
                 style={{
                   padding: '0.7rem 0.9rem',
                   borderRadius: 8,
-                  background: 'rgba(239,68,68,0.1)',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  color: '#fecaca',
+                  background: 'rgba(180,54,28,0.08)',
+                  border: '1px solid rgba(180,54,28,0.25)',
+                  color: 'var(--danger)',
                   marginBottom: '1rem',
                 }}
               >
@@ -215,8 +215,8 @@ export default function CreateAdventurePage() {
                     {preview.placeIds.map((pid) => {
                       const p = PLACES.find((x) => x.id === pid);
                       return (
-                        <li key={pid} style={{ padding: '0.1rem 0', color: '#cbd5e1' }}>
-                          <strong style={{ color: '#f1f5f9' }}>{p?.name}</strong>
+                        <li key={pid} style={{ padding: '0.1rem 0', color: 'var(--ink-soft)' }}>
+                          <strong style={{ color: 'var(--ink)' }}>{p?.name}</strong>
                           <span style={{ color: 'var(--ink-mute)', marginLeft: 4, fontSize: '0.85rem' }}>
                             {p?.country}
                           </span>

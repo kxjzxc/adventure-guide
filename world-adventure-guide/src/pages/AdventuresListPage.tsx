@@ -49,9 +49,9 @@ export default function AdventuresListPage() {
                   setActiveAdventure(a.id);
                   navigate(`/adventures/${a.id}`);
                 }}
-                style={{ cursor: 'pointer', transition: 'border-color 0.15s' }}
+                style={{ cursor: 'pointer', transition: 'border-color 0.15s', boxShadow: 'var(--shadow-sm)' }}
                 onMouseEnter={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(212,160,23,0.4)')
+                  (e.currentTarget.style.borderColor = 'rgba(168,98,43,0.4)')
                 }
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = '')}
               >
@@ -61,7 +61,7 @@ export default function AdventuresListPage() {
                 </div>
 
                 {a.coverNote && (
-                  <p style={{ fontSize: '0.92rem', color: '#cbd5e1' }}>
+                  <p style={{ fontSize: '0.92rem', color: 'var(--ink-soft)' }}>
                     {a.coverNote.length > 120 ? a.coverNote.slice(0, 120) + '…' : a.coverNote}
                   </p>
                 )}
@@ -76,6 +76,7 @@ export default function AdventuresListPage() {
                     color: 'var(--ink-mute)',
                     overflowX: 'auto',
                     whiteSpace: 'nowrap',
+                    border: '1px solid var(--line)',
                   }}
                 >
                   {a.placeIds.map((pid, i) => (
@@ -84,9 +85,9 @@ export default function AdventuresListPage() {
                         style={{
                           color:
                             i < a.currentStep
-                              ? '#9ae6b4'
+                              ? 'var(--success)'
                               : i === a.currentStep
-                              ? 'var(--accent-2)'
+                              ? 'var(--accent)'
                               : 'var(--ink-mute)',
                           fontWeight: i === a.currentStep ? 600 : 400,
                         }}
@@ -111,7 +112,7 @@ export default function AdventuresListPage() {
                       width: '100%',
                       height: 6,
                       borderRadius: 999,
-                      background: 'var(--bg-elev)',
+                      background: 'var(--bg-elev-2)',
                       overflow: 'hidden',
                     }}
                   >

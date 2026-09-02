@@ -105,7 +105,7 @@ export default function AdventureDetailPage() {
                   )}
                   <span
                     style={{
-                      color: i === step ? 'var(--accent-2)' : i < step ? '#9ae6b4' : 'var(--ink-mute)',
+                      color: i === step ? 'var(--accent-2)' : i < step ? 'var(--success)' : 'var(--ink-mute)',
                       fontWeight: i === step ? 600 : 400,
                     }}
                   >
@@ -140,7 +140,7 @@ export default function AdventureDetailPage() {
                   {getContentsByPlace(currentPlace.id).length} 条内容
                 </span>
                 {totalRecordsHere > 0 && (
-                  <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', borderColor: 'rgba(16,185,129,0.25)' }}>
+                  <span className="badge" style={{ background: 'rgba(92,123,60,0.12)', color: 'var(--success)', borderColor: 'rgba(92,123,60,0.25)' }}>
                     我的 {totalRecordsHere} 条记录
                   </span>
                 )}
@@ -160,7 +160,7 @@ export default function AdventureDetailPage() {
                   <h4>🎒 旅途见闻 · 上一段路线</h4>
                   <ul style={{ paddingLeft: '1.2rem', margin: '0.3rem 0 0' }}>
                     {currentRoute.highlights.map((h, i) => (
-                      <li key={i} style={{ marginBottom: 4, color: '#cbd5e1' }}>{h}</li>
+                      <li key={i} style={{ marginBottom: 4, color: 'var(--ink-soft)' }}>{h}</li>
                     ))}
                   </ul>
                 </div>
@@ -226,12 +226,12 @@ export default function AdventureDetailPage() {
                           : 'transparent',
                       border:
                         state === 'future'
-                          ? '2px solid #94a3b8'
+                          ? '2px solid var(--ink-mute)'
                           : `2px solid ${
                               state === 'current' ? 'var(--accent-2)' : 'var(--success)'
                             }`,
                       boxShadow:
-                        state === 'current' ? '0 0 0 4px rgba(212,160,23,0.2)' : 'none',
+                        state === 'current' ? '0 0 0 4px rgba(168,98,43,0.2)' : 'none',
                     }}
                   />
                   {/* 上一段路线亮点 */}
@@ -258,10 +258,10 @@ export default function AdventureDetailPage() {
                       padding: '0.7rem 0.9rem',
                       borderRadius: 'var(--radius-sm)',
                       background:
-                        state === 'current' ? 'rgba(212,160,23,0.1)' : 'transparent',
+                        state === 'current' ? 'rgba(168,98,43,0.1)' : 'transparent',
                       border:
                         state === 'current'
-                          ? '1px solid rgba(212,160,23,0.4)'
+                          ? '1px solid rgba(168,98,43,0.4)'
                           : '1px solid var(--line)',
                       transition: 'all 0.15s',
                       display: 'block',
@@ -279,7 +279,7 @@ export default function AdventureDetailPage() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontWeight: 600, color: '#f1f5f9' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--ink)' }}>
                           第 {i + 1} 站 · {p.name}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--ink-mute)', marginTop: 2 }}>
@@ -287,7 +287,7 @@ export default function AdventureDetailPage() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        {state === 'visited' && <span className="badge" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7', borderColor: 'rgba(16,185,129,0.25)' }}>已到</span>}
+                        {state === 'visited' && <span className="badge" style={{ background: 'rgba(92,123,60,0.12)', color: 'var(--success)', borderColor: 'rgba(92,123,60,0.25)' }}>已到</span>}
                         {state === 'current' && <span className="badge">在这里</span>}
                         {state === 'future' && <span className="badge badge-soft">未到</span>}
                         {recs.length > 0 && (
@@ -299,7 +299,7 @@ export default function AdventureDetailPage() {
                       style={{
                         marginTop: '0.4rem',
                         fontSize: '0.88rem',
-                        color: '#cbd5e1',
+                        color: 'var(--ink-soft)',
                       }}
                     >
                       {p.summary.length > 80 ? p.summary.slice(0, 80) + '…' : p.summary}

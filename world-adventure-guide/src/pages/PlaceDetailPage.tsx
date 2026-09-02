@@ -129,7 +129,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
               {placeFav && (
                 <span
                   className="badge"
-                  style={{ background: 'rgba(244,63,94,0.15)', color: '#fda4af', borderColor: 'rgba(244,63,94,0.3)' }}
+                  style={{ background: 'rgba(180,54,28,0.1)', color: 'var(--danger)', borderColor: 'rgba(180,54,28,0.25)' }}
                 >
                   ❤ 已收藏
                 </span>
@@ -164,7 +164,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
               <span key={t} className="badge badge-soft">#{t}</span>
             ))}
           </div>
-          <hr className="divider" style={{ borderTop: '1px dashed rgba(31,41,55,0.25)' }} />
+          <hr className="divider" style={{ borderTop: '1px dashed rgba(61,43,31,0.25)' }} />
           <div className="grid grid-2">
             <div>
               <h4 style={{ color: 'var(--ink)', marginTop: 0 }}>🌐 坐标</h4>
@@ -182,7 +182,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
           </div>
           {containingAdventures.length > 0 && (
             <>
-              <hr className="divider" style={{ borderTop: '1px dashed rgba(31,41,55,0.25)' }} />
+              <hr className="divider" style={{ borderTop: '1px dashed rgba(61,43,31,0.25)' }} />
               <div>
                 <h4 style={{ color: 'var(--ink)', marginTop: 0 }}>包含此地的冒险</h4>
                 <div className="stack">
@@ -191,9 +191,9 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
                       key={a.id}
                       style={{
                         padding: '0.5rem 0.7rem',
-                        background: 'rgba(26,40,71,0.05)',
+                        background: 'rgba(168,98,43,0.05)',
                         borderRadius: 8,
-                        border: '1px solid rgba(31,41,55,0.08)',
+                        border: '1px solid rgba(61,43,31,0.1)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
@@ -282,18 +282,18 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
                     style={{
                       borderLeft: `3px solid ${
                         c.kind === 'history'
-                          ? '#f59e0b'
+                          ? 'var(--accent)'
                           : c.kind === 'culture'
-                          ? '#a855f7'
+                          ? '#7a4c93'
                           : c.kind === 'geography'
-                          ? '#10b981'
+                          ? 'var(--success)'
                           : c.kind === 'food'
-                          ? '#ec4899'
+                          ? '#b6426a'
                           : c.kind === 'architecture'
-                          ? '#f97316'
+                          ? '#9a5b20'
                           : c.kind === 'people'
-                          ? '#14b8a6'
-                          : '#60a5fa'
+                          ? '#1e6e66'
+                          : '#4a6fa5'
                       }`,
                     }}
                   >
@@ -321,7 +321,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
                       <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                         <div className="chip-row">
                           {c.tags.map((t) => (
-                            <span key={t} className="badge badge-soft" style={{ background: 'rgba(31,41,55,0.05)', color: 'var(--ink-soft)' }}>
+                            <span key={t} className="badge badge-soft" style={{ background: 'rgba(61,43,31,0.06)', color: 'var(--ink-soft)' }}>
                               #{t}
                             </span>
                           ))}
@@ -388,7 +388,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
                     onClick={() => setRating(rating === n ? undefined : n)}
                     style={{
                       fontSize: '1.4rem',
-                      color: rating && n <= rating ? '#fbbf24' : 'var(--ink-mute)',
+                      color: rating && n <= rating ? '#c68a1e' : 'var(--ink-mute)',
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
@@ -438,15 +438,15 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
                       {r.kind === 'thought' ? '💭 个人理解' : '📒 笔记'}
                     </span>
                     {r.rating && (
-                      <span style={{ color: '#fbbf24', fontSize: '0.85rem' }}>
+                      <span style={{ color: '#c68a1e', fontSize: '0.85rem' }}>
                         {'★'.repeat(r.rating)}
                       </span>
                     )}
                   </div>
-                  <div style={{ color: '#e2e8f0', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.text}</div>
+                  <div style={{ color: 'var(--ink-soft)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{r.text}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.75rem', color: 'var(--ink-mute)' }}>
                     <span>{new Date(r.updatedAt).toLocaleString('zh-CN')}</span>
-                    <button className="btn btn-ghost" style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem', color: '#fca5a5' }} onClick={() => deleteRecord(r.id)}>删除</button>
+                    <button className="btn btn-ghost" style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem' }} onClick={() => deleteRecord(r.id)}>删除</button>
                   </div>
                 </div>
               ))
@@ -463,17 +463,17 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
                   key={r.id}
                   style={{
                     padding: '0.8rem',
-                    background: 'rgba(59,130,246,0.08)',
+                    background: 'rgba(92,123,60,0.08)',
                     borderRadius: 8,
-                    border: '1px solid rgba(59,130,246,0.2)',
+                    border: '1px solid rgba(92,123,60,0.25)',
                   }}
                 >
-                  <div style={{ color: '#dbeafe', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                  <div style={{ color: 'var(--success)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
                     ✈️ {r.text}
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: '0.75rem', color: 'var(--ink-mute)' }}>
                     <span>{new Date(r.updatedAt).toLocaleString('zh-CN')}</span>
-                    <button className="btn btn-ghost" style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem', color: '#fca5a5' }} onClick={() => deleteRecord(r.id)}>已完成/删除</button>
+                    <button className="btn btn-ghost" style={{ padding: '0.1rem 0.5rem', fontSize: '0.75rem' }} onClick={() => deleteRecord(r.id)}>已完成/删除</button>
                   </div>
                 </div>
               ))
@@ -502,7 +502,7 @@ function KindButton({
         padding: '0.4rem 0.85rem',
         fontSize: '0.85rem',
         background: active ? 'var(--accent)' : 'var(--bg-elev)',
-        color: active ? '#1a1200' : '#f1f5f9',
+        color: active ? '#fff7ec' : 'var(--ink)',
         borderColor: active ? 'transparent' : 'var(--line)',
         fontWeight: active ? 600 : 500,
       }}

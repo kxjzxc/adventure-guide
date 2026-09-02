@@ -71,7 +71,7 @@ export default function HomePage() {
                 </div>
               </div>
               {active.coverNote && (
-                <p style={{ color: '#cbd5e1', marginTop: '0.4rem' }}>{active.coverNote}</p>
+                <p style={{ color: 'var(--ink-soft)', marginTop: '0.4rem' }}>{active.coverNote}</p>
               )}
               <Progress adventure={active} />
               <AdventureMap
@@ -116,7 +116,7 @@ export default function HomePage() {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-                    <div style={{ fontWeight: 500, color: '#f1f5f9' }}>{a.title}</div>
+                    <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{a.title}</div>
                     <span style={{ fontSize: '0.75rem', color: 'var(--ink-mute)' }}>
                       {a.placeIds.length} 站
                     </span>
@@ -156,7 +156,7 @@ export default function HomePage() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.borderColor = 'rgba(212,160,23,0.4)';
+                  e.currentTarget.style.borderColor = 'rgba(168,98,43,0.4)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = '';

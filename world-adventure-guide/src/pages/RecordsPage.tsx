@@ -147,7 +147,7 @@ export default function RecordsPage() {
                       <span className="badge">{meta.icon} {meta.label}</span>
                       {r.kind === 'note' || r.kind === 'thought' ? (
                         r.rating && (
-                          <span style={{ color: '#fbbf24', fontSize: '0.85rem' }}>
+                          <span style={{ color: '#c68a1e', fontSize: '0.85rem' }}>
                             {'★'.repeat(r.rating)}
                           </span>
                         )
@@ -159,7 +159,7 @@ export default function RecordsPage() {
                   </div>
 
                   {r.text && (
-                    <div style={{ color: '#e2e8f0', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 8 }}>
+                    <div style={{ color: 'var(--ink-soft)', lineHeight: 1.7, whiteSpace: 'pre-wrap', marginBottom: 8 }}>
                       {r.text}
                     </div>
                   )}
@@ -200,7 +200,7 @@ export default function RecordsPage() {
                       ) : null}
                       <button
                         className="btn btn-ghost"
-                        style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem', color: '#fca5a5' }}
+                        style={{ padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}
                         onClick={() => {
                           if (confirm('删除该条记录？')) deleteRecord(r.id);
                         }}
@@ -242,7 +242,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
         padding: '0.35rem 0.9rem',
         fontSize: '0.85rem',
         background: active ? 'var(--accent)' : 'var(--bg-elev)',
-        color: active ? '#1a1200' : '#f1f5f9',
+        color: active ? '#fff7ec' : 'var(--ink)',
         borderColor: active ? 'transparent' : 'var(--line)',
         fontWeight: active ? 600 : 500,
       }}
