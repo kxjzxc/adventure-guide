@@ -1,0 +1,184 @@
+// ============================================================
+// 世界冒险指南 - 核心数据模型
+// 内容是什么，与内容如何展示，是两个完全独立的问题。
+// ============================================================
+
+/** 世界类型：支持现实世界、历史世界、虚拟世界等扩展 */
+export type WorldKind = 'real' | 'historical' | 'virtual';
+
+/**
+ * World 世界
+ * 定义「正在探索的世界」。
+ * MVP 仅实现：地球 × 当前时间（real × present）
+ */
+export interface World {
+  id: string;
+  name: string;
+  kind: WorldKind;
+  /** 时间锚点，如 "present" / "1920" / "2120" / "middle-earth" */
+  timeAnchor: string;
+  description: string;
+}
+
+/**
+ * 地理位置坐标
+ */
+export interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+/**
+ * 地点类型：国家 / 城市 / 地标 / 自然景观 / 建筑 等
+ */
+export type PlaceType = 'country' | 'city' | 'landmark' | 'nature' | 'building' | 'region';
+
+/**
+ * Space -> Place 地点
+ * 描述世界中的一个具体空间节点
+ */
+export interface Place {
+  id: string;
+  name: string;
+  /** 本地名称（如东京 / Tokyo / 東京） */
+  localName?: string;
+  type: PlaceType;
+  coords: Coordinates;
+  /** 所属国家 / 地区 */
+  country?: string;
+  /** 简介 */
+  summary: string;
+  /** 覆盖此地点的不同时间视角（用于 Timeline 切换） */
+  timePerspectives?: string[];
+  /** 标签：如 "文化"、"美食"、"历史"、"自然" */
+  tags: string[];
+  /** 关联内容 ID */
+  contentIds: string[];
+}
+
+/**
+ * Space -> Route 路线
+ * 连接两个地点的路径，带可选的中间停靠点
+ */
+export interface Route {
+  id: string;
+  fromPlaceId: string;
+  toPlaceId: string;
+  /** 折线坐标，用于地图绘制 */
+  path: Coordinates[];
+  /** 预计的探索距离感（不代表真实交通） */
+  distanceLabel?: string;
+  /** 沿途可发现的内容简介 */
+  highlights: string[];
+}
+
+/**
+ * Adventure 冒险
+ * 用户在一个 World 中进行的一次探索过程
+ */
+export interface Adventure {
+  id: string;
+  worldId: string;
+  title: string;
+  /** 冒险主题，如 "东南亚到古都" */
+  theme?: string;
+  /** 路线上按顺序排列的地点 ID */
+  placeIds: string[];
+  /** 相邻地点之间的路线 ID */
+  routeIds: string[];
+  /** 创建时间 */
+  createdAt: number;
+  /** 最近访问时间 */
+  lastVisitedAt: number;
+  /** 当前探索进度（在 placeIds 中的下标） */
+  currentStep: number;
+  /** 用户给此次冒险的封面描述 */
+  coverNote?: string;
+}
+
+/**
+ * 内容类型
+ */
+export type ContentKind =
+  | 'article'    // 文章 / 介绍
+  | 'history'    // 历史
+  | 'geography'  // 地理
+  | 'culture'    // 文化
+  | 'food'       // 美食
+  | 'people'     // 人物
+  | 'architecture' // 建筑
+  | 'image';     // 图集
+
+/**
+ * Content 内容
+ * 内容独立存在，不依赖具体页面。
+ * 相同内容可以在地图、冒险、时间线、搜索中复用。
+ */
+export interface ContentItem {
+  id: string;
+  kind: ContentKind;
+  title: string;
+  /** 内容主体（Markdown 纯文本） */
+  body: string;
+  /** 适用的时间视角，如 ["present"] / ["1920", "present"] */
+  timeRelevance: string[];
+  /** 关联的地点 ID */
+  placeId: string;
+  /** 作者 / 来源 */
+  source?: string;
+  /** 图片 URL（当 kind=image 或其他内容带插图） */
+  imageUrl?: string;
+  /** 标签 */
+  tags: string[];
+  /** 阅读时间估算（分钟） */
+  readingMinutes?: number;
+}
+
+/**
+ * Record 记录
+ * 用户在探索过程中留下的个人信息。
+ * 记录属于用户，而不是页面。
+ */
+export type RecordKind =
+  | 'note'       // 笔记
+  | 'favorite'   // 收藏
+  | 'wishlist'   // 想去的地方
+  | 'thought';   // 个人理解/感悟
+
+export interface UserRecord {
+  id: string;
+  kind: RecordKind;
+  /** 关联的世界 */
+  worldId: string;
+  /** 关联的时间视角（可选） */
+  timePerspective?: string;
+  /** 关联的地点 */
+  placeId?: string;
+  /** 关联的内容 */
+  contentId?: string;
+  /** 关联的冒险 */
+  adventureId?: string;
+  /** 用户自由文本 */
+  text: string;
+  /** 0-5 星评分（可选） */
+  rating?: number;
+  /** 创建时间 */
+  createdAt: number;
+  /** 更新时间 */
+  updatedAt: number;
+}
+
+// ============================================================
+// 聚合视图（用于展示系统，不改变核心模型）
+// ============================================================
+
+export interface AdventureStep {
+  index: number;
+  place: Place;
+  /** 进入此地点前的路线 */
+  incomingRoute?: Route;
+  /** 关联内容 */
+  contents: ContentItem[];
+  /** 用户个人记录 */
+  records: UserRecord[];
+}
