@@ -29,7 +29,11 @@ export default function RecordsPage() {
           : scope === 'content'
           ? !!r.contentId
           : scope === 'adventure'
-          ? !!r.adventureId && !r.placeId
+          // re-review P1-2 修复：只要记录是在某 adventure 上下文中产生的（adventureId 非空）
+          // 就计入"冒险相关"。不再附加 !r.placeId：
+          // PlaceDetailPage 里从 Adventure 出发写的 note/thought/favorite 通常
+          // 同时携带 adventureId + placeId，之前被误排除。
+          ? !!r.adventureId
           : true
       )
       .sort((a, b) => b.updatedAt - a.updatedAt);

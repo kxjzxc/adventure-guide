@@ -245,13 +245,24 @@ export const useRecordStore = create<RecordState>()(
         return get().records.some((r) => {
           if (r.kind !== 'favorite') return false;
           if (worldId && r.worldId !== worldId) return false;
-          // placeId 维度：提供了就要严格相等；没提供则不要求
-          if (placeId !== undefined) {
-            if (r.placeId !== placeId) return false;
-          }
-          // contentId 维度：提供了就要严格相等
+          //
+          // Favorite identity 严格分两类（re-review P1-1 修复）：
+          //   - Place favorite   → worldId + placeId + **无 contentId**
+          //   - Content favorite → worldId + placeId (可选) + **有 contentId**
+          //
+          // 当查 Place favorite 时（placeId 传了但 contentId 没传），必须排除带 contentId 的记录，
+          // 否则"收藏过某内容"会被误判成"收藏过此 Place"。
           if (contentId !== undefined) {
+            // → 查询 Content favorite：contentId 必须精确匹配
             if (r.contentId !== contentId) return false;
+            // 若同时提供 placeId，也进一步与 record 的 placeId 对齐（兼容可选）
+            if (placeId !== undefined && r.placeId !== placeId) return false;
+          } else {
+            // → 查询 Place favorite（或更宽泛的 world 级汇总）：record 必须也没有 contentId
+            if (r.contentId != null) return false;
+            if (placeId !== undefined) {
+              if (r.placeId !== placeId) return false;
+            }
           }
           return true;
         });
