@@ -35,10 +35,17 @@ export type PlaceType = 'country' | 'city' | 'landmark' | 'nature' | 'building' 
 
 /**
  * Space -> Place 地点
- * 描述世界中的一个具体空间节点
+ * 描述世界中的一个具体空间节点。
+ *
+ * 语义约束（对应 #1 World 数据隔离）：
+ *   Place 始终属于某个 World。"同一个地理地点"在不同 World/时代
+ *   下是不同的 Place 实例（不同的 id），以便保存不同上下文的
+ *   简介、内容、标签等。查询层统一通过 worldId 过滤。
  */
 export interface Place {
   id: string;
+  /** 所属 World */
+  worldId: string;
   name: string;
   /** 本地名称（如东京 / Tokyo / 東京） */
   localName?: string;
@@ -58,10 +65,21 @@ export interface Place {
 
 /**
  * Space -> Route 路线
- * 连接两个地点的路径，带可选的中间停靠点
+ * 连接两个地点的路径，带可选的中间停靠点。
+ *
+ * 语义约束（对应 #2 模型抽象）：
+ *   Place  = graph node  图节点
+ *   Route  = graph edge  图边（有向，fromPlaceId -> toPlaceId）
+ *   Adventure.placeIds = 路径上按顺序的节点序列
+ *   Adventure.routeIds = 相邻节点之间的边序列
+ *
+ * MVP 里 buildAdventurePath 只支持"预设链路上的连续子段"，
+ * 但模型层面不限制此关系——未来可扩展分叉路线、多条候选路径。
  */
 export interface Route {
   id: string;
+  /** 所属 World（用于跨世界隔离查询） */
+  worldId: string;
   fromPlaceId: string;
   toPlaceId: string;
   /** 折线坐标，用于地图绘制 */
@@ -75,6 +93,12 @@ export interface Route {
 /**
  * Adventure 冒险
  * 用户在一个 World 中进行的一次探索过程
+ *
+ * 结构不变量（对应 #3 invariant）：
+ *   routeIds.length === placeIds.length - 1
+ *   routeIds[i] 是连接 placeIds[i] → placeIds[i+1] 的边
+ *   currentStep ∈ [0, placeIds.length - 1]
+ * 这些约束在 createAdventure / setCurrentStep 层统一保证。
  */
 export interface Adventure {
   id: string;
@@ -84,7 +108,7 @@ export interface Adventure {
   theme?: string;
   /** 路线上按顺序排列的地点 ID */
   placeIds: string[];
-  /** 相邻地点之间的路线 ID */
+  /** 相邻地点之间的路线 ID — 长度必须为 placeIds.length - 1 */
   routeIds: string[];
   /** 创建时间 */
   createdAt: number;
@@ -113,6 +137,9 @@ export type ContentKind =
  * Content 内容
  * 内容独立存在，不依赖具体页面。
  * 相同内容可以在地图、冒险、时间线、搜索中复用。
+ *
+ * World 归属：Content 通过 placeId → Place.worldId 取得所属 World；
+ * 对于"同一内容跨 World 复用"的场景，保持内容独立对象更合适。
  */
 export interface ContentItem {
   id: string;
@@ -124,6 +151,8 @@ export interface ContentItem {
   timeRelevance: string[];
   /** 关联的地点 ID */
   placeId: string;
+  /** 所属 World（冗余存储，用于查询层直接按 worldId 过滤，避免 join Place） */
+  worldId: string;
   /** 作者 / 来源 */
   source?: string;
   /** 图片 URL（当 kind=image 或其他内容带插图） */

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Adventure, UserRecord, RecordKind } from '../types';
-import { buildAdventurePath, SAMPLE_ADVENTURE_TEMPLATE } from '../data/worldData';
+import { buildAdventurePath, SAMPLE_ADVENTURE_TEMPLATE, validateAdventureInvariant } from '../data/worldData';
 
 // =======================
 // Adventure Store
@@ -56,8 +56,14 @@ export const useAdventureStore = create<AdventureState>()(
       activeAdventureId: null,
 
       createAdventure: ({ title, theme, worldId, fromPlaceId, toPlaceId, coverNote }) => {
-        const path = buildAdventurePath(fromPlaceId, toPlaceId);
+        const path = buildAdventurePath(fromPlaceId, toPlaceId, worldId);
         if (!path) return null;
+        // #3 invariant 防线：routeIds.length === placeIds.length - 1 且每段边都真的连接相邻节点
+        const invErr = validateAdventureInvariant(path.placeIds, path.routeIds);
+        if (invErr) {
+          console.error('[createAdventure] 结构不变量校验失败:', invErr);
+          return null;
+        }
         const now = Date.now();
         const adv: Adventure = {
           id: `adv-${now}-${Math.floor(Math.random() * 1000)}`,
@@ -85,11 +91,11 @@ export const useAdventureStore = create<AdventureState>()(
 
       setCurrentStep: (adventureId, step) => {
         set((s) => ({
-          adventures: s.adventures.map((a) =>
-            a.id === adventureId
-              ? { ...a, currentStep: Math.max(0, Math.min(a.placeIds.length - 1, step)), lastVisitedAt: Date.now() }
-              : a
-          ),
+          adventures: s.adventures.map((a) => {
+            if (a.id !== adventureId) return a;
+            const bounded = Math.max(0, Math.min(a.placeIds.length - 1, step));
+            return { ...a, currentStep: bounded, lastVisitedAt: Date.now() };
+          }),
         }));
       },
 
@@ -152,7 +158,11 @@ interface RecordState {
     worldId: string;
     adventureId?: string;
   }) => void;
-  isFavorited: (filters: { placeId?: string; contentId?: string }) => boolean;
+  /**
+   * 判断是否已收藏。identity = worldId + placeId (+ contentId)。
+   * 注：同一个"地理地点/内容"在不同 World 下是独立的收藏项。
+   */
+  isFavorited: (filters: { placeId?: string; contentId?: string; worldId?: string }) => boolean;
 }
 
 export const useRecordStore = create<RecordState>()(
@@ -203,11 +213,14 @@ export const useRecordStore = create<RecordState>()(
 
       toggleFavorite: ({ placeId, contentId, worldId, adventureId }) => {
         if (!placeId && !contentId) return;
+        // #5 Favorite identity = worldId + placeId (+ contentId)。
+        // adventureId 只是"该收藏是在哪次冒险上下文中产生的"上下文，不参与唯一键判断。
         const existing = get().records.find(
           (r) =>
             r.kind === 'favorite' &&
-            (placeId ? r.placeId === placeId : true) &&
-            (contentId ? r.contentId === contentId : true)
+            r.worldId === worldId &&
+            (placeId ? r.placeId === placeId : !r.placeId) &&
+            (contentId ? r.contentId === contentId : !r.contentId)
         );
         if (existing) {
           set((s) => ({ records: s.records.filter((r) => r.id !== existing.id) }));
@@ -228,13 +241,20 @@ export const useRecordStore = create<RecordState>()(
         }
       },
 
-      isFavorited: ({ placeId, contentId }) => {
-        return get().records.some(
-          (r) =>
-            r.kind === 'favorite' &&
-            (placeId ? r.placeId === placeId : true) &&
-            (contentId ? r.contentId === contentId : true)
-        );
+      isFavorited: ({ placeId, contentId, worldId }) => {
+        return get().records.some((r) => {
+          if (r.kind !== 'favorite') return false;
+          if (worldId && r.worldId !== worldId) return false;
+          // placeId 维度：提供了就要严格相等；没提供则不要求
+          if (placeId !== undefined) {
+            if (r.placeId !== placeId) return false;
+          }
+          // contentId 维度：提供了就要严格相等
+          if (contentId !== undefined) {
+            if (r.contentId !== contentId) return false;
+          }
+          return true;
+        });
       },
     }),
     {

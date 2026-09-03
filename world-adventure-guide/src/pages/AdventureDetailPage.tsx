@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AdventureMap from '../components/AdventureMap';
 import { useAdventureStore } from '../store';
-import { getPlace, getRoute, getContentsByPlace, ROUTES } from '../data/worldData';
+import { getPlace, getRoute, getContentsByPlace } from '../data/worldData';
 import { useRecordStore } from '../store';
 import type { Place, Route } from '../types';
 
@@ -11,6 +11,10 @@ import type { Place, Route } from '../types';
  * - 顶部：地图 + 当前位置
  * - 左侧：冒险信息 / 进度 / 路线亮点
  * - 右侧：时间线式的地点序列
+ *
+ * 说明（review #4）：
+ *   进入某地点的"上一段路线"使用 adventure.routeIds[step - 1] 获取，
+ *   不再 ROUTES.find 模糊匹配 — 当一个 Place 有多条 Route 时可避免歧义。
  */
 export default function AdventureDetailPage() {
   const { id } = useParams();
@@ -53,8 +57,8 @@ export default function AdventureDetailPage() {
   const total = places.length;
   const step = Math.max(0, Math.min(total - 1, adventure.currentStep));
   const currentPlace = places[step];
-  const currentRoute =
-    step > 0 ? routes.find((r) => r && (r.toPlaceId === currentPlace?.id || r.fromPlaceId === currentPlace?.id)) : undefined;
+  // #4 直接按顺序取下标，不再 ROUTES.find 模糊匹配
+  const currentRoute = step > 0 ? routes[step - 1] : undefined;
   const totalRecordsHere = currentPlace
     ? getRecordsBy({ placeId: currentPlace.id, adventureId: adventure.id }).length
     : 0;
@@ -189,14 +193,8 @@ export default function AdventureDetailPage() {
           </div>
           <ol style={{ listStyle: 'none', padding: 0, margin: 0, position: 'relative' }}>
             {places.map((p, i) => {
-              const incomingRoute =
-                i > 0
-                  ? ROUTES.find(
-                      (r) =>
-                        (r.fromPlaceId === places[i - 1].id && r.toPlaceId === p.id) ||
-                        (r.toPlaceId === places[i - 1].id && r.fromPlaceId === p.id)
-                    )
-                  : undefined;
+              // #4 直接按 adventure.routeIds 的顺序取下标，不再 ROUTES.find 模糊匹配
+              const incomingRoute = i > 0 ? routes[i - 1] : undefined;
               const state = i < step ? 'visited' : i === step ? 'current' : 'future';
               const recs = getRecordsBy({ placeId: p.id, adventureId: adventure.id });
               return (

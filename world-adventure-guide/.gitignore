@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Trae 生成的预览/分享 zip 等临时产物
+.trae-html-share-packages/

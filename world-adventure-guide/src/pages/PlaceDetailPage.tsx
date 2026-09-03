@@ -70,7 +70,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
     );
   }
 
-  const placeFav = isFavorited({ placeId: place.id });
+  const placeFav = isFavorited({ placeId: place.id, worldId });
 
   const submitRecord = () => {
     if (activeKind === 'favorite') return;
@@ -270,7 +270,7 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
           ) : (
             <div className="stack">
               {filtered.map((c) => {
-                const contentFav = isFavorited({ contentId: c.id });
+                const contentFav = isFavorited({ contentId: c.id, placeId: place.id, worldId });
                 const contentRecords = allRecords.filter(
                   (r) =>
                     r.contentId === c.id && (!adventureId || r.adventureId === adventureId)
