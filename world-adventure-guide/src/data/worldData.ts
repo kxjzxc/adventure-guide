@@ -44,7 +44,6 @@ export const PLACES: Place[] = [
     summary:
       '一座位于马来半岛南端的城市国家，以多元文化、整洁与高效率闻名。这里是东西方文化交汇的港口，也是探索东南亚的完美起点。',
     tags: ['城市', '多元文化', '港口', '美食'],
-    contentIds: ['sg-intro', 'sg-history', 'sg-food', 'sg-architecture'],
   },
   {
     id: 'bangkok',
@@ -57,7 +56,6 @@ export const PLACES: Place[] = [
     summary:
       '泰国的首都与最大城市，被称为「天使之城」。古老的寺庙与现代商场并存，运河与高架轨道交织，永远充满喧嚣与活力。',
     tags: ['佛教', '夜市', '文化', '美食'],
-    contentIds: ['bk-intro', 'bk-temple', 'bk-food'],
   },
   {
     id: 'hanoi',
@@ -70,7 +68,6 @@ export const PLACES: Place[] = [
     summary:
       '越南北部的千年古都，还剑湖、老街区、法式建筑和越南咖啡共同构成了这里独特的气质：温柔而坚韧，怀旧又充满生机。',
     tags: ['古都', '法式', '咖啡', '文化'],
-    contentIds: ['hn-intro', 'hn-history', 'hn-coffee'],
   },
   {
     id: 'kunming',
@@ -83,7 +80,6 @@ export const PLACES: Place[] = [
     summary:
       '位于云贵高原的「春城」，常年花开不败。这里是中国通往东南亚的门户，也是多民族文化、多样地貌与野生菌美食的故乡。',
     tags: ['高原', '春城', '多民族', '自然'],
-    contentIds: ['km-intro', 'km-nature', 'km-culture'],
   },
   {
     id: 'chengdu',
@@ -96,7 +92,6 @@ export const PLACES: Place[] = [
     summary:
       '天府之国的省会，一座以「慢生活」闻名的城市。茶馆、火锅、大熊猫、诗圣草堂……在这里你会明白什么叫「巴适」。',
     tags: ['美食', '茶馆', '熊猫', '历史'],
-    contentIds: ['cd-intro', 'cd-food', 'cd-panda'],
   },
   {
     id: 'xian',
@@ -109,7 +104,6 @@ export const PLACES: Place[] = [
     summary:
       '十三朝古都，丝绸之路的东方起点。兵马俑、古城墙、钟鼓楼与回民街——这里保存着中国最厚重的一段历史记忆。',
     tags: ['古都', '兵马俑', '丝绸之路', '历史'],
-    contentIds: ['xa-intro', 'xa-terracotta', 'xa-history'],
   },
   {
     id: 'beijing',
@@ -122,7 +116,6 @@ export const PLACES: Place[] = [
     summary:
       '中华人民共和国的首都，一座拥有三千多年历史的文化名城。紫禁城、长城、胡同、798——古老与现代在这里激烈对话。',
     tags: ['首都', '故宫', '长城', '文化'],
-    contentIds: ['bj-intro', 'bj-forbidden', 'bj-greatwall'],
   },
 ];
 
@@ -519,9 +512,10 @@ export function getContentsByPlaceAndWorld(placeId: string, worldId: string): Co
 }
 
 /**
- * 结构不变量校验（对应 review #3）：
+ * 结构不变量校验（对应 review #3 + re-review #1 方向语义）：
  *   routeIds.length === placeIds.length - 1
- *   routeIds[i] 必须真的连接 placeIds[i] ↔ placeIds[i+1]
+ *   routeIds[i] 以无向边语义连接 placeIds[i] ↔ placeIds[i+1]
+ *   （Route 在模型层面被定义为 UNDIRECTED 边，fromPlaceId/toPlaceId 只是两端点稳定 id）
  */
 export function validateAdventureInvariant(placeIds: string[], routeIds: string[]): string | null {
   if (placeIds.length === 0) return 'placeIds 不能为空';
@@ -533,11 +527,10 @@ export function validateAdventureInvariant(placeIds: string[], routeIds: string[
     if (!r) return `routeIds[${i}] = ${routeIds[i]} 不存在`;
     const a = placeIds[i];
     const b = placeIds[i + 1];
-    const connected =
-      (r.fromPlaceId === a && r.toPlaceId === b) ||
-      (r.fromPlaceId === b && r.toPlaceId === a);
-    if (!connected) {
-      return `routeIds[${i}] = ${r.id} 不连接 ${a} ↔ ${b}（实际是 ${r.fromPlaceId} → ${r.toPlaceId}）`;
+    // Route 是无向边：两端点相等即可（不分 A→B 还是 B→A）
+    const endpoints = new Set([r.fromPlaceId, r.toPlaceId]);
+    if (!endpoints.has(a) || !endpoints.has(b)) {
+      return `routeIds[${i}] = ${r.id} 不连接 ${a} ↔ ${b}（端点是 {${r.fromPlaceId}, ${r.toPlaceId}}）`;
     }
   }
   return null;
@@ -546,11 +539,13 @@ export function validateAdventureInvariant(placeIds: string[], routeIds: string[
 /**
  * 根据起点终点生成一条冒险的 routeIds 与 placeIds（按已有数据组合）
  *
- * ⚠️ MVP 实现限制（对应 review #2）：
- *   当前只支持在预设链路（SG→BK→HN→KM→CD→XA→BJ）上查找连续子段。
+ * ⚠️ MVP 实现限制（对应 review #2 / re-review #1）：
+ *   当前只支持在预设链路（SG↔BK↔HN↔KM↔CD↔XA↔BJ）上查找**连续子段**，
+ *   正向 / 反向都合法（因为 Route 是无向边）。
+ *
  *   这是实现限制，不是模型限制：
- *     Place  = graph node
- *     Route  = graph edge
+ *     Place     = graph node
+ *     Route     = graph UNDIRECTED edge
  *     Adventure = ordered path
  *   后续可扩展：分叉路线、多条候选路径、World 内全图 Dijkstra 查找。
  */
@@ -581,11 +576,13 @@ export function buildAdventurePath(fromId: string, toId: string, worldId?: strin
   for (let i = 0; i < placeIds.length - 1; i++) {
     const a = placeIds[i];
     const b = placeIds[i + 1];
+    // Route 按无向边语义查找：两端点都匹配即可
     const r = ROUTES.find(
-      (rr) =>
-        rr.worldId === fromPlace.worldId &&
-        ((rr.fromPlaceId === a && rr.toPlaceId === b) ||
-          (rr.fromPlaceId === b && rr.toPlaceId === a))
+      (rr) => {
+        if (rr.worldId !== fromPlace.worldId) return false;
+        const eps = new Set([rr.fromPlaceId, rr.toPlaceId]);
+        return eps.has(a) && eps.has(b);
+      }
     );
     if (!r) return null; // 相邻节点缺失 route → 该路径不合法
     routeIds.push(r.id);

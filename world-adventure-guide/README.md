@@ -39,9 +39,9 @@
 
 ```
 World
- └─ Place   (graph node)   世界中的空间节点
-    ├─ Route (graph edge)  两个 Place 之间的路径（有向）
-    └─ ContentItem         独立存在的知识内容（文章 / 历史 / 地理 / ...）
+ └─ Place   (graph node)               世界中的空间节点
+    ├─ Route (graph UNDIRECTED edge)   两个 Place 之间的无向路线
+    └─ ContentItem                     独立存在的知识内容（文章 / 历史 / 地理 / ...）
 
 Adventure  一次冒险
  ├─ placeIds[]  →  路径上按顺序的 Place 序列
@@ -55,10 +55,16 @@ UserRecord  用户留下的个人信息
 **关键不变量（Adventure）：**
 ```
 routeIds.length === placeIds.length - 1
-routeIds[i]  连接  placeIds[i] ↔ placeIds[i+1]
+routeIds[i]  以无向边语义连接 placeIds[i] ↔ placeIds[i+1]
 currentStep ∈ [0, placeIds.length - 1]
 ```
-所有不变量在 `store.createAdventure` / `data.buildAdventurePath` 层统一校验，不把约束下沉到页面逻辑。
+不变量在 `store.createAdventure` / `data.buildAdventurePath` 层统一校验，不下沉到页面逻辑。
+
+**Route 方向语义（re-review #1 已统一）：**
+Route 是 **无向边**。`fromPlaceId / toPlaceId` 只是两端点的稳定 ID，不代表方向约束。正向（SG→BK）和反向（BK→SG）旅行都使用同一条 Route。未来需要单行道 / 单向禁行等方向语义时，再把两端方向拆成两条独立 Route 或新增 direction 字段。
+
+**Content 关系的唯一事实源（re-review #3 已统一）：**
+`ContentItem.placeId (+ worldId)` 是 Content↔Place 的唯一 canonical 关系。`Place.contentIds` 已移除，不再双写维护反向列表，避免数据漂移。查询一律走 `getContentsByPlace(placeId)` / `getContentsByPlaceAndWorld`。
 
 **Favorite 的 identity：**
 ```

@@ -59,28 +59,38 @@ export interface Place {
   timePerspectives?: string[];
   /** 标签：如 "文化"、"美食"、"历史"、"自然" */
   tags: string[];
-  /** 关联内容 ID */
-  contentIds: string[];
+  /**
+   * ⚠️ 注意：Place 与 Content 的关系使用单一事实源：
+   *   ContentItem.placeId (+ worldId)  → 唯一 canonical 关系
+   *   不再维护 Place.contentIds 反向列表，避免双写造成不一致。
+   *   需要取"某地点的全部内容"时调用 getContentsByPlace(placeId) / getContentsByPlaceAndWorld。
+   */
 }
 
 /**
  * Space -> Route 路线
  * 连接两个地点的路径，带可选的中间停靠点。
  *
- * 语义约束（对应 #2 模型抽象）：
- *   Place  = graph node  图节点
- *   Route  = graph edge  图边（有向，fromPlaceId -> toPlaceId）
+ * 语义约束（对应 re-review #1 方向统一）：
+ *   Place = graph node         图节点
+ *   Route = graph UNDIRECTED edge  图无向边（可以从 fromPlaceId 到 toPlaceId，也可反向）
  *   Adventure.placeIds = 路径上按顺序的节点序列
  *   Adventure.routeIds = 相邻节点之间的边序列
  *
- * MVP 里 buildAdventurePath 只支持"预设链路上的连续子段"，
- * 但模型层面不限制此关系——未来可扩展分叉路线、多条候选路径。
+ *   fromPlaceId / toPlaceId 在此"无向边"模型里仅作为 Route 两端点的稳定标识符，
+ *   不起方向约束作用。后续若需要单向路线（例如单行道、禁行方向）时，可把
+ *   Route 拆成两条不同 id 的边，或新增 direction 字段。
+ *
+ * MVP 限制：buildAdventurePath 只能在预设链路上查找"连续子段"，
+ * 但这不影响"Route 无向边"这一模型层的抽象。
  */
 export interface Route {
   id: string;
   /** 所属 World（用于跨世界隔离查询） */
   worldId: string;
+  /** 端点 A。在无向边模型里不代表方向约束。 */
   fromPlaceId: string;
+  /** 端点 B。在无向边模型里不代表方向约束。 */
   toPlaceId: string;
   /** 折线坐标，用于地图绘制 */
   path: Coordinates[];

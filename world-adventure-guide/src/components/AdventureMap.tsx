@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import type { Adventure, Place, Route } from '../types';
-import { PLACES, ROUTES } from '../data/worldData';
+import { PLACES, ROUTES, getPlacesByWorld, getRoutesByWorld } from '../data/worldData';
 
 /** 自定义 divIcon 渲染：不再依赖默认的 leaflet marker 图 */
 function useCustomIcons() {
@@ -24,29 +24,50 @@ function useCustomIcons() {
 }
 
 export interface AdventureMapProps {
-  /** 要绘制的冒险；不传则绘制所有地点 */
+  /** 要绘制的冒险；不传则绘制 worldId 对应世界的全部地点 */
   adventure?: Adventure;
   /** 覆盖的高度 */
   height?: number | string;
   /** 点击地点时跳转或回调 */
   adventureIdForLink?: string;
+  /**
+   * 当没有传 adventure 时，用该 worldId 限定展示的范围。
+   * （re-review #2：Map 层必须有 World scope，避免多 World 同 id 串数据）
+   */
+  worldId?: string;
 }
 
 export default function AdventureMap({
   adventure,
   height = 460,
   adventureIdForLink,
+  worldId: worldIdProp,
 }: AdventureMapProps) {
   const icons = useCustomIcons();
 
-  // 计算展示的地点与路线
+  // 计算展示的地点与路线（按 World scope 过滤 + World 一致性校验）
   const { places, routes, bounds } = useMemo(() => {
     if (adventure) {
-      const pls = adventure.placeIds
+      // re-review #2：要求 Adventure.worldId 与它引用的所有 Place/Route 的 worldId 一致
+      const worldMismatchPlace = adventure.placeIds
         .map((id) => PLACES.find((p) => p.id === id))
+        .find((p) => !!p && p.worldId !== adventure.worldId);
+      const worldMismatchRoute = adventure.routeIds
+        .map((id) => ROUTES.find((r) => r.id === id))
+        .find((r) => !!r && r.worldId !== adventure.worldId);
+      if (worldMismatchPlace || worldMismatchRoute) {
+        console.error(
+          '[AdventureMap] World 一致性失败：Adventure.worldId=',
+          adventure.worldId,
+          'but first mismatch Place:', worldMismatchPlace,
+          'or Route:', worldMismatchRoute
+        );
+      }
+      const pls = adventure.placeIds
+        .map((id) => PLACES.find((p) => p.id === id && p.worldId === adventure!.worldId))
         .filter((p): p is Place => !!p);
       const rts = adventure.routeIds
-        .map((id) => ROUTES.find((r) => r.id === id))
+        .map((id) => ROUTES.find((r) => r.id === id && r.worldId === adventure!.worldId))
         .filter((r): r is Route => !!r);
       const latlngs = pls.map((p) => [p.coords.lat, p.coords.lng] as [number, number]);
       return {
@@ -55,16 +76,17 @@ export default function AdventureMap({
         bounds: latlngs.length > 0 ? L.latLngBounds(latlngs).pad(0.4) : undefined,
       };
     }
-    // 默认展示全部地点
-    const pls = PLACES;
-    const rts = ROUTES;
+    // 未传 Adventure：按 worldId（缺省 earth-present）绘制该世界的全部节点和边
+    const wid = worldIdProp ?? 'earth-present';
+    const pls = getPlacesByWorld(wid);
+    const rts = getRoutesByWorld(wid);
     const latlngs = pls.map((p) => [p.coords.lat, p.coords.lng] as [number, number]);
     return {
       places: pls,
       routes: rts,
-      bounds: L.latLngBounds(latlngs).pad(0.25),
+      bounds: latlngs.length > 0 ? L.latLngBounds(latlngs).pad(0.25) : undefined,
     };
-  }, [adventure]);
+  }, [adventure, worldIdProp]);
 
   return (
     <MapContainer

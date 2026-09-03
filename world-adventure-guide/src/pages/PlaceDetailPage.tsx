@@ -29,6 +29,11 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
     () => (place ? getContentsByPlace(place.id) : []),
     [place]
   );
+  // 当前 Place 合法的 contentId 集合（re-review #4：relatedRecords 必须限制在本 Place 内）
+  const currentContentIdSet = useMemo(
+    () => new Set(allContents.map((c) => c.id)),
+    [allContents]
+  );
   const contents = allContents;
 
   const [kindFilter, setKindFilter] = useState<ContentKind | 'all'>('all');
@@ -44,9 +49,15 @@ export default function PlaceDetailPage({ inAdventure = false }: Props) {
     isFavorited,
   } = useRecordStore();
   const relatedRecords = allRecords.filter(
-    (r) =>
-      (r.placeId === place?.id || r.contentId) &&
-      (!adventureId || r.adventureId === adventureId)
+    (r) => {
+      // 属于这个 Place 的记录
+      if (r.placeId === place?.id) return !adventureId || r.adventureId === adventureId;
+      // 属于这个 Place 中某个 Content 的记录：contentId 必须在当前内容集合里
+      if (r.contentId != null && currentContentIdSet.has(r.contentId)) {
+        return !adventureId || r.adventureId === adventureId;
+      }
+      return false;
+    }
   );
 
   const notes = relatedRecords.filter((r) => r.kind === 'note' || r.kind === 'thought');
