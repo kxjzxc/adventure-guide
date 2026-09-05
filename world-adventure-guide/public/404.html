@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!--
+  SPA fallback for GitHub Pages.
+  Direct visiting or refreshing a React Router sub-route (e.g. /adventure-guide/adventures/xxx)
+  would otherwise return 404 because GH Pages has no file at that path.
+
+  Technique: spa-github-pages (https://github.com/rafgraph/spa-github-pages)
+   1. GH Pages serves this 404.html with the full URL intact
+   2. We serialize path+search into a sessionStorage marker and redirect to /adventure-guide/?p=<encoded>
+   3. index.html rehydrates from sessionStorage and calls history.replaceState() to restore the original URL
+-->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>世界冒险指南</title>
+  <script>
+    (function () {
+      var BASE = '/adventure-guide';
+      var l = window.location;
+      var pathName = l.pathname;
+      // Strip the leading base to get the app-level route.
+      var appPath = pathName.indexOf(BASE) === 0
+        ? pathName.slice(BASE.length) || '/'
+        : pathName || '/';
+      var q = l.search || '';
+      var h = l.hash || '';
+      try {
+        sessionStorage.setItem(
+          'wag-ghp-redirect',
+          JSON.stringify({ path: appPath, search: q, hash: h })
+        );
+      } catch (e) { /* noop */ }
+      // Redirect to site root with a readable hint; index.html will restore the route.
+      l.replace(BASE + '/' + (appPath === '/' ? '' : ''));
+    })();
+  </script>
+</head>
+<body>
+  <p>正在跳转……如果浏览器没有自动返回首页，请
+    <a href="/adventure-guide/">点击这里</a>。
+  </p>
+</body>
+</html>

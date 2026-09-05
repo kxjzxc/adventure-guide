@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>世界冒险指南 · World Adventure Guide</title>
+    <meta name="description" content="通过一次冒险，认识一个原本不了解的世界。" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      GitHub Pages SPA 刷新恢复：
+      当用户直接访问 /adventure-guide/adventures/xxx 等子路由时，GH Pages 会回落到 404.html，
+      404.html 把原始路由写到 sessionStorage 并跳回首页。这里读到之后用
+      history.replaceState 把 URL 还原为原始路径，React Router 之后自然渲染到正确页面。
+    -->
+    <script>
+      (function () {
+        try {
+          var raw = sessionStorage.getItem('wag-ghp-redirect');
+          if (!raw) return;
+          var info = JSON.parse(raw);
+          sessionStorage.removeItem('wag-ghp-redirect');
+          if (info && typeof info.path === 'string') {
+            var target = info.path + (info.search || '') + (info.hash || '');
+            // history.replaceState 不会触发浏览器导航，React Router 随后 mount 时能直接匹配。
+            window.history.replaceState(null, '', target);
+          }
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
