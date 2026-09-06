@@ -36,7 +36,10 @@ export class DefaultRenderer implements IRenderer {
 
   async render(vault: ParsedVault, ctx: RenderContext): Promise<void> {
     const { storage, config } = ctx;
-    const base = config.site.base || '/';
+    // base 规范化：空 → '/'；非 '/' 且不以 '/' 结尾 → 补 '/'。
+    // 避免配置 "/adventure-guide" 时拼出 "/adventure-guideplaces/foo.html"。
+    let base = config.site.base || '/';
+    if (base !== '/' && !base.endsWith('/')) base += '/';
 
     // 建立查询索引
     const index = this.buildIndex(vault);
@@ -50,7 +53,7 @@ export class DefaultRenderer implements IRenderer {
     await storage.save('index.html', this.renderHome(vault, index, config.site, base));
 
     // 2. 时间线
-    await storage.save('timeline.html', this.renderTimeline(vault, config.site, base));
+    await storage.save('timeline.html', this.renderTimeline(vault, resolve, config.site, base));
 
     // 3. 地点详情页（Place→Content 查询带 worldId，避免跨 World 串内容）
     for (const place of vault.places) {
@@ -204,7 +207,11 @@ export class DefaultRenderer implements IRenderer {
    *   #content/Tokyo → 仅查 content
    *   #Tokyo → 通用查找（place 优先）
    * 解析以页面所属 worldId 为 scope（同 world 优先，跨 world 回退）。
-   * 找不到目标时渲染为死链 span。
+   *
+   * 一次性匹配整个锚点 <a href="#..." class="ag-link">display</a>：
+   *   - 命中 → 替换为指向真实页面的 <a>，保留 display（可能是 alias）
+   *   - 未命中 → 替换为完整闭合的 <span class="ag-link-dead">display</span>
+   * 不再依赖二次 regex 修复，避免标签不闭合。
    */
   private resolveWikilinks(
     html: string,
@@ -213,8 +220,8 @@ export class DefaultRenderer implements IRenderer {
     base: string,
   ): string {
     return html.replace(
-      /<a href="#([^"]+)" class="ag-link">/g,
-      (_match, encoded: string) => {
+      /<a href="#([^"]+)" class="ag-link">([\s\S]*?)<\/a>/g,
+      (_match, encoded: string, display: string) => {
         const raw = decodeURIComponent(encoded);
         let path: string | undefined;
         let name = raw;
@@ -224,14 +231,11 @@ export class DefaultRenderer implements IRenderer {
           name = raw.slice(slashIdx + 1).trim();
         }
         const target = resolve({ name, path }, sourceWorldId);
-        if (!target) return `<span class="ag-link-dead">`;
+        if (!target) return `<span class="ag-link-dead">${display}</span>`;
         return target.type === 'place'
-          ? `<a href="${base}places/${target.id}.html" class="ag-link ag-link-place">`
-          : `<a href="${base}content/${target.id}.html" class="ag-link ag-link-content">`;
+          ? `<a href="${base}places/${target.id}.html" class="ag-link ag-link-place">${display}</a>`
+          : `<a href="${base}content/${target.id}.html" class="ag-link ag-link-content">${display}</a>`;
       },
-    ).replace(
-      /<span class="ag-link-dead">([^<]+)<\/a>/g,
-      '<span class="ag-link-dead">$1</span>',
     );
   }
 
@@ -285,8 +289,15 @@ export class DefaultRenderer implements IRenderer {
         </a>`;
     }).join('');
 
+    // 用 JSON.stringify 生成 JS 字面量，避免 id 含单引号破坏脚本语法。
     const placeMarkers = vault.places.map((p) =>
-      `{ id: '${p.id}', name: ${JSON.stringify(p.name)}, lat: ${p.coords.lat}, lng: ${p.coords.lng}, url: '${base}places/${p.id}.html' }`,
+      JSON.stringify({
+        id: p.id,
+        name: p.name,
+        lat: p.coords.lat,
+        lng: p.coords.lng,
+        url: `${base}places/${p.id}.html`,
+      }),
     ).join(',\n      ');
 
     // 路线折线：优先使用 Route.path（沿铁路/公路/河流的真实曲线），
@@ -543,6 +554,12 @@ export class DefaultRenderer implements IRenderer {
       return '[' + pts.map((c) => `[${c.lat},${c.lng}]`).join(',') + ']';
     }).filter(Boolean).join(',');
 
+    // Adventure 正文闭环：渲染 adv.bodyHtml（经 wikilink 解析），
+    // 避免 vault/adventures/*.md 正文被 Generator 静默丢弃。
+    const advBody = adv.bodyHtml
+      ? this.resolveWikilinks(adv.bodyHtml, resolve, adv.worldId, base)
+      : '';
+
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -570,6 +587,8 @@ export class DefaultRenderer implements IRenderer {
 
     <div class="adventure-map" id="adventure-map"></div>
 
+    ${advBody ? `<article class="adventure-body">${advBody}</article>` : ''}
+
     <div class="adventure-path">${steps}</div>
   </main>
 
@@ -586,6 +605,7 @@ export class DefaultRenderer implements IRenderer {
 
   private renderTimeline(
     vault: ParsedVault,
+    resolve: (ref: WikilinkRef, sourceWorldId: string) => { type: 'place' | 'content'; id: string } | undefined,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -595,12 +615,18 @@ export class DefaultRenderer implements IRenderer {
     );
     const timeline = sortedWorlds.map((w) => {
       const places = vault.places.filter((p) => p.worldId === w.id);
+      // World 正文闭环：渲染 w.bodyHtml（经 wikilink 解析），
+      // 避免 vault/worlds/*.md 正文被 Generator 静默丢弃。
+      const body = w.bodyHtml
+        ? this.resolveWikilinks(w.bodyHtml, resolve, w.id, base)
+        : '';
       return `
         <div class="timeline-item">
           <div class="timeline-anchor">${w.timeAnchor}</div>
           <div class="timeline-content">
             <h3>${this.escapeHtml(w.name)}</h3>
             <p>${this.escapeHtml(w.description)}</p>
+            ${body ? `<div class="timeline-body">${body}</div>` : ''}
             <div class="timeline-places">
               ${places.map((p) => `<a href="${base}places/${p.id}.html" class="timeline-place">${this.escapeHtml(p.name)}</a>`).join('')}
             </div>

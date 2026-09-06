@@ -26,6 +26,14 @@ export interface World {
   /** 时间锚点：present / 1920 / middle-earth */
   timeAnchor: string;
   description: string;
+  /** 正文 Markdown 渲染后的 HTML */
+  bodyHtml?: string;
+  /** 原始 Markdown 正文 */
+  bodyRaw?: string;
+  /** 页面中引用的其它条目（[[wikilink]]） */
+  links?: WikilinkRef[];
+  /** 反向引用：哪些条目链接到了这里 */
+  backlinkIds?: string[];
 }
 
 export interface Coordinates {

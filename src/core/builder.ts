@@ -376,6 +376,10 @@ export class Builder {
       }
     };
 
+    for (const world of vault.worlds) {
+      // World 自身即 worldId 边界；其 wikilink 在自身 scope 解析
+      for (const ref of world.links || []) trackRef(world.id, world.id, ref);
+    }
     for (const place of vault.places) {
       for (const ref of place.links || []) trackRef(place.id, place.worldId, ref);
     }

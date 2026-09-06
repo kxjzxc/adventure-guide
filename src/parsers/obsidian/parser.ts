@@ -63,12 +63,21 @@ export class ObsidianParser implements IParser {
       const { data, content } = this.readFrontmatter(file);
       if (data.type !== 'world') continue;
 
+      // World 正文闭环：与 Place/Content 一致地解析 bodyHtml + links，
+      // 避免 vault/worlds/*.md 正文被 Generator 静默丢弃。
+      const bodyHtml = renderMarkdown(content);
+      const links = extractWikilinks(content);
+
       worlds.push({
         id: String(data.id || path.basename(file, '.md')),
         name: String(data.name || data.id || ''),
         kind: (data.kind as WorldKind) || 'real',
         timeAnchor: String(data.time_anchor || data.timeAnchor || 'present'),
         description: String(data.description || ''),
+        bodyHtml,
+        bodyRaw: content,
+        links,
+        backlinkIds: [],
       });
     }
     return worlds;
