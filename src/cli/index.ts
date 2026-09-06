@@ -261,7 +261,7 @@ program
     }
 
     startServer(root, port, config, {
-      watch: opts.watch && opts.build,
+      watch: opts.watch,
       open: opts.open,
       label: 'Server',
     });

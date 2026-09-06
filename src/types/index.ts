@@ -222,6 +222,8 @@ export interface AGConfig {
   outputPath: string;
   storage: string;
   theme: string;
+  /** 主题资源目录（含 css/、js/）。优先级：config.themePath > __dirname 推导 > process.cwd()。找不到 → build error。 */
+  themePath?: string;
   site: SiteConfig;
 }
 

@@ -69,7 +69,7 @@ export class DefaultRenderer implements IRenderer {
 
     // 5. 冒险详情页
     for (const adv of vault.adventures) {
-      const html = this.renderAdventure(adv, vault, config.site, base);
+      const html = this.renderAdventure(adv, vault, resolve, config.site, base);
       await storage.save(`adventures/${adv.id}.html`, html);
     }
 
@@ -237,6 +237,19 @@ export class DefaultRenderer implements IRenderer {
 
   // ─── 页面渲染 ────────────────────────────────────────────
 
+  /**
+   * 转义 frontmatter 文本字段用于 HTML 文本节点 / 属性值。
+   * bodyHtml 已由 marked 生成，不在本方法职责内。
+   */
+  private escapeHtml(s: unknown): string {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   private renderHome(
     vault: ParsedVault,
     index: ReturnType<DefaultRenderer['buildIndex']>,
@@ -248,8 +261,8 @@ export class DefaultRenderer implements IRenderer {
       const adventureCount = index.adventures.filter((a) => a.worldId === w.id).length;
       return `
         <div class="world-card">
-          <h3>${w.name}</h3>
-          <p class="world-desc">${w.description}</p>
+          <h3>${this.escapeHtml(w.name)}</h3>
+          <p class="world-desc">${this.escapeHtml(w.description)}</p>
           <div class="world-meta">
             <span>${placeCount} 个地点</span>
             <span>${adventureCount} 条冒险</span>
@@ -293,14 +306,14 @@ export class DefaultRenderer implements IRenderer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${site.title}</title>
+  <title>${this.escapeHtml(site.title)}</title>
   <link rel="stylesheet" href="${base}css/style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="home">
   <header class="site-header">
-    <h1 class="site-title">${site.title}</h1>
-    <p class="site-subtitle">${site.subtitle}</p>
+    <h1 class="site-title">${this.escapeHtml(site.title)}</h1>
+    <p class="site-subtitle">${this.escapeHtml(site.subtitle)}</p>
     <nav class="site-nav">
       <a href="${base}index.html" class="active">世界</a>
       <a href="${base}timeline.html">时间线</a>
@@ -348,13 +361,13 @@ export class DefaultRenderer implements IRenderer {
     base: string,
   ): string {
     const body = this.resolveWikilinks(place.bodyHtml || '', resolve, place.worldId, base);
-    const tagsHtml = place.tags.map((t) => `<span class="tag">${t}</span>`).join('');
+    const tagsHtml = place.tags.map((t) => `<span class="tag">${this.escapeHtml(t)}</span>`).join('');
     const backlinksHtml = (place.backlinkIds || []).length > 0
       ? `<div class="backlinks"><h4>被引用</h4><div class="link-list">${place.backlinkIds!.map((id) => {
           const p = vault.places.find((x) => x.id === id);
           const c = vault.contents.find((x) => x.id === id);
-          if (p) return `<a href="${base}places/${id}.html" class="ag-link">${p.name}</a>`;
-          if (c) return `<a href="${base}content/${id}.html" class="ag-link">${c.title}</a>`;
+          if (p) return `<a href="${base}places/${id}.html" class="ag-link">${this.escapeHtml(p.name)}</a>`;
+          if (c) return `<a href="${base}content/${id}.html" class="ag-link">${this.escapeHtml(c.title)}</a>`;
           return '';
         }).join('')}</div></div>`
       : '';
@@ -363,7 +376,7 @@ export class DefaultRenderer implements IRenderer {
       ? `<div class="content-list"><h4>相关内容</h4>${placeContents.map((c) =>
           `<a class="content-card" href="${base}content/${c.id}.html">
             <span class="content-kind content-kind-${c.kind}">${c.kind}</span>
-            <span class="content-title">${c.title}</span>
+            <span class="content-title">${this.escapeHtml(c.title)}</span>
             ${c.readingMinutes ? `<span class="content-reading">${c.readingMinutes} 分钟</span>` : ''}
           </a>`).join('')}</div>`
       : '';
@@ -373,13 +386,13 @@ export class DefaultRenderer implements IRenderer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${place.name} — ${site.title}</title>
+  <title>${this.escapeHtml(place.name)} — ${this.escapeHtml(site.title)}</title>
   <link rel="stylesheet" href="${base}css/style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="place-page">
   <header class="site-header">
-    <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
+    <h1 class="site-title"><a href="${base}index.html">${this.escapeHtml(site.title)}</a></h1>
     <nav class="site-nav">
       <a href="${base}index.html">世界</a>
       <a href="${base}timeline.html">时间线</a>
@@ -388,15 +401,15 @@ export class DefaultRenderer implements IRenderer {
 
   <main class="place-detail">
     <div class="place-header">
-      <h2>${place.name}</h2>
-      ${place.localName ? `<div class="place-local-name">${place.localName}</div>` : ''}
-      ${place.country ? `<div class="place-country">${place.country}</div>` : ''}
+      <h2>${this.escapeHtml(place.name)}</h2>
+      ${place.localName ? `<div class="place-local-name">${this.escapeHtml(place.localName)}</div>` : ''}
+      ${place.country ? `<div class="place-country">${this.escapeHtml(place.country)}</div>` : ''}
       <div class="place-tags">${tagsHtml}</div>
     </div>
 
     <div class="place-map" id="place-map"></div>
 
-    <div class="place-summary">${place.summary}</div>
+    <div class="place-summary">${this.escapeHtml(place.summary)}</div>
 
     ${body ? `<article class="place-body">${body}</article>` : ''}
 
@@ -423,17 +436,17 @@ export class DefaultRenderer implements IRenderer {
     base: string,
   ): string {
     const body = this.resolveWikilinks(content.bodyHtml, resolve, content.worldId, base);
-    const tagsHtml = content.tags.map((t) => `<span class="tag">${t}</span>`).join('');
+    const tagsHtml = content.tags.map((t) => `<span class="tag">${this.escapeHtml(t)}</span>`).join('');
     const placeLink = content.placeId
-      ? `<a class="place-link" href="${base}places/${content.placeId}.html">← ${(vault.places.find((p) => p.id === content.placeId)?.name) || content.placeId}</a>`
+      ? `<a class="place-link" href="${base}places/${content.placeId}.html">← ${this.escapeHtml((vault.places.find((p) => p.id === content.placeId)?.name) || content.placeId)}</a>`
       : '';
 
     const backlinksHtml = content.backlinkIds.length > 0
       ? `<div class="backlinks"><h4>被引用</h4><div class="link-list">${content.backlinkIds.map((id) => {
           const p = vault.places.find((x) => x.id === id);
           const c = vault.contents.find((x) => x.id === id);
-          if (p) return `<a href="${base}places/${id}.html" class="ag-link">${p.name}</a>`;
-          if (c) return `<a href="${base}content/${id}.html" class="ag-link">${c.title}</a>`;
+          if (p) return `<a href="${base}places/${id}.html" class="ag-link">${this.escapeHtml(p.name)}</a>`;
+          if (c) return `<a href="${base}content/${id}.html" class="ag-link">${this.escapeHtml(c.title)}</a>`;
           return '';
         }).join('')}</div></div>`
       : '';
@@ -443,12 +456,12 @@ export class DefaultRenderer implements IRenderer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${content.title} — ${site.title}</title>
+  <title>${this.escapeHtml(content.title)} — ${this.escapeHtml(site.title)}</title>
   <link rel="stylesheet" href="${base}css/style.css">
 </head>
 <body class="content-page">
   <header class="site-header">
-    <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
+    <h1 class="site-title"><a href="${base}index.html">${this.escapeHtml(site.title)}</a></h1>
     <nav class="site-nav">
       <a href="${base}index.html">世界</a>
       <a href="${base}timeline.html">时间线</a>
@@ -458,10 +471,10 @@ export class DefaultRenderer implements IRenderer {
   <main class="content-detail">
     <div class="content-header">
       <span class="content-kind content-kind-${content.kind}">${content.kind}</span>
-      <h2>${content.title}</h2>
+      <h2>${this.escapeHtml(content.title)}</h2>
       <div class="content-meta">
         ${content.readingMinutes ? `<span>${content.readingMinutes} 分钟阅读</span>` : ''}
-        ${content.source ? `<span>来源：${content.source}</span>` : ''}
+        ${content.source ? `<span>来源：${this.escapeHtml(content.source)}</span>` : ''}
       </div>
       <div class="content-tags">${tagsHtml}</div>
     </div>
@@ -481,6 +494,7 @@ export class DefaultRenderer implements IRenderer {
   private renderAdventure(
     adv: Adventure,
     vault: ParsedVault,
+    resolve: (ref: WikilinkRef, sourceWorldId: string) => { type: 'place' | 'content'; id: string } | undefined,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -488,20 +502,25 @@ export class DefaultRenderer implements IRenderer {
       const place = vault.places.find((p) => p.id === pid);
       if (!place) return '';
       const route = i > 0 ? vault.routes.find((r) => r.id === adv.routeIds[i - 1]) : undefined;
-      const contents = vault.contents.filter((c) => c.placeId === pid);
+      const contents = vault.contents.filter((c) => c.placeId === pid && c.worldId === place.worldId);
+      // Route 正文闭环：在 Adventure step 中渲染 route.bodyHtml（经 wikilink 解析）
+      const routeBody = route?.bodyHtml
+        ? this.resolveWikilinks(route.bodyHtml, resolve, adv.worldId, base)
+        : '';
       return `
         <div class="adventure-step" data-step="${i}">
           ${route ? `<div class="step-route">
             <span class="route-arrow">↓</span>
-            ${route.distanceLabel ? `<span class="route-distance">${route.distanceLabel}</span>` : ''}
-            ${route.highlights.length > 0 ? `<div class="route-highlights">${route.highlights.map((h) => `<span>${h}</span>`).join('')}</div>` : ''}
+            ${route.distanceLabel ? `<span class="route-distance">${this.escapeHtml(route.distanceLabel)}</span>` : ''}
+            ${route.highlights.length > 0 ? `<div class="route-highlights">${route.highlights.map((h) => `<span>${this.escapeHtml(h)}</span>`).join('')}</div>` : ''}
+            ${routeBody ? `<div class="route-body">${routeBody}</div>` : ''}
           </div>` : ''}
           <div class="step-place">
             <span class="step-index">${i + 1}</span>
-            <h3><a href="${base}places/${place.id}.html">${place.name}</a></h3>
-            <p class="step-summary">${place.summary}</p>
+            <h3><a href="${base}places/${place.id}.html">${this.escapeHtml(place.name)}</a></h3>
+            <p class="step-summary">${this.escapeHtml(place.summary)}</p>
             ${contents.length > 0 ? `<div class="step-contents">${contents.map((c) =>
-              `<a class="content-mini" href="${base}content/${c.id}.html">${c.title}</a>`).join('')}</div>` : ''}
+              `<a class="content-mini" href="${base}content/${c.id}.html">${this.escapeHtml(c.title)}</a>`).join('')}</div>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -529,13 +548,13 @@ export class DefaultRenderer implements IRenderer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${adv.title} — ${site.title}</title>
+  <title>${this.escapeHtml(adv.title)} — ${this.escapeHtml(site.title)}</title>
   <link rel="stylesheet" href="${base}css/style.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="adventure-page">
   <header class="site-header">
-    <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
+    <h1 class="site-title"><a href="${base}index.html">${this.escapeHtml(site.title)}</a></h1>
     <nav class="site-nav">
       <a href="${base}index.html">世界</a>
       <a href="${base}timeline.html">时间线</a>
@@ -544,9 +563,9 @@ export class DefaultRenderer implements IRenderer {
 
   <main class="adventure-detail">
     <div class="adventure-header">
-      <h2>${adv.title}</h2>
-      ${adv.theme ? `<div class="adventure-theme">${adv.theme}</div>` : ''}
-      ${adv.coverNote ? `<p class="adventure-cover">${adv.coverNote}</p>` : ''}
+      <h2>${this.escapeHtml(adv.title)}</h2>
+      ${adv.theme ? `<div class="adventure-theme">${this.escapeHtml(adv.theme)}</div>` : ''}
+      ${adv.coverNote ? `<p class="adventure-cover">${this.escapeHtml(adv.coverNote)}</p>` : ''}
     </div>
 
     <div class="adventure-map" id="adventure-map"></div>
@@ -580,10 +599,10 @@ export class DefaultRenderer implements IRenderer {
         <div class="timeline-item">
           <div class="timeline-anchor">${w.timeAnchor}</div>
           <div class="timeline-content">
-            <h3>${w.name}</h3>
-            <p>${w.description}</p>
+            <h3>${this.escapeHtml(w.name)}</h3>
+            <p>${this.escapeHtml(w.description)}</p>
             <div class="timeline-places">
-              ${places.map((p) => `<a href="${base}places/${p.id}.html" class="timeline-place">${p.name}</a>`).join('')}
+              ${places.map((p) => `<a href="${base}places/${p.id}.html" class="timeline-place">${this.escapeHtml(p.name)}</a>`).join('')}
             </div>
           </div>
         </div>`;
@@ -594,12 +613,12 @@ export class DefaultRenderer implements IRenderer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>时间线 — ${site.title}</title>
+  <title>时间线 — ${this.escapeHtml(site.title)}</title>
   <link rel="stylesheet" href="${base}css/style.css">
 </head>
 <body class="timeline-page">
   <header class="site-header">
-    <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
+    <h1 class="site-title"><a href="${base}index.html">${this.escapeHtml(site.title)}</a></h1>
     <nav class="site-nav">
       <a href="${base}index.html">世界</a>
       <a href="${base}timeline.html" class="active">时间线</a>
@@ -619,11 +638,35 @@ export class DefaultRenderer implements IRenderer {
   // ─── 主题资源复制 ────────────────────────────────────────
 
   /**
-   * 从 themes/default 读取主题资源并通过 Storage 写入输出目录。
-   * 读源文件用 fs（不属于 Storage 职责），写输出统一走 Storage。
+   * 复制主题资源到输出目录。
+   *
+   * 主题目录解析优先级：
+   *   1. config.themePath（显式指定，最可靠）
+   *   2. 从本文件位置推导（__dirname/../../../themes/<theme>），
+   *      适配「从任意目录执行 CLI」的场景，不依赖 process.cwd()
+   *   3. process.cwd()/themes/<theme>（兼容旧行为）
+   *
+   * 任一候选目录存在即采用；全部找不到 → 抛错终止 build，
+   * 避免生成引用了 css/js 但实际缺失的坏站点。
    */
   private async copyThemeAssets(ctx: RenderContext): Promise<void> {
-    const themesDir = path.join(process.cwd(), 'themes', 'default');
+    const themeName = ctx.config.theme || 'default';
+    const candidates = [
+      ctx.config.themePath,
+      path.resolve(__dirname, '..', '..', '..', 'themes', themeName),
+      path.resolve(process.cwd(), 'themes', themeName),
+    ].filter((p): p is string => !!p);
+
+    let themesDir: string | undefined;
+    for (const c of candidates) {
+      if (fs.existsSync(c)) { themesDir = c; break; }
+    }
+    if (!themesDir) {
+      throw new Error(
+        `找不到主题资源目录 themes/${themeName}（尝试过: ${candidates.join(', ')}）。请在 config 中设置 themePath，或将 themes/ 放到项目根。`,
+      );
+    }
+
     const cssSrc = path.join(themesDir, 'css');
     const jsSrc = path.join(themesDir, 'js');
 

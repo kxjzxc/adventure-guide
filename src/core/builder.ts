@@ -253,20 +253,31 @@ export class Builder {
       }
     }
 
-    // 4. ID 全局唯一（Place 内 / Content 内 / Place×Content 跨类型）
-    const seenIds = new Map<string, 'place' | 'content'>();
-    const recordId = (kind: 'place' | 'content', id: string) => {
+    // 4. ID 全局唯一 + 安全 slug（覆盖所有 Domain Object：World/Place/Route/Content/Adventure）
+    //    - 跨类型同 ID 会导致 Map 覆盖、backlink 渲染按类型猜时歧义、输出路径冲突
+    //    - ID 含 / \ .. 或绝对路径会穿出 output directory，破坏站点结构
+    const seenIds = new Map<string, string>();
+    type DomainKind = 'World' | 'Place' | 'Route' | 'Content' | 'Adventure';
+    const unsafeIdPattern = /[\/\\]|^\.\.?$|\.\.[\/\\]/;
+
+    const recordId = (kind: DomainKind, id: string) => {
+      if (!id || unsafeIdPattern.test(id)) {
+        errors.push(`${kind} ID "${id}" 不安全：不允许为空或包含 / \\ ..`);
+        return;
+      }
       const prev = seenIds.get(id);
-      if (prev && prev !== kind) {
+      if (prev) {
         errors.push(`ID "${id}" 同时存在于 ${prev} 与 ${kind}（ID 必须全局唯一）`);
-      } else if (prev === kind) {
-        errors.push(`ID "${id}" 在 ${kind} 中重复`);
       } else {
         seenIds.set(id, kind);
       }
     };
-    for (const p of vault.places) recordId('place', p.id);
-    for (const c of vault.contents) recordId('content', c.id);
+
+    for (const w of vault.worlds) recordId('World', w.id);
+    for (const p of vault.places) recordId('Place', p.id);
+    for (const r of vault.routes) recordId('Route', r.id);
+    for (const c of vault.contents) recordId('Content', c.id);
+    for (const a of vault.adventures) recordId('Adventure', a.id);
 
     if (errors.length > 0) {
       throw new Error(
