@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# TypeScript 编译产物
+lib/
+
+# 本地配置（保留 config.example.json 作为模板）
+config.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

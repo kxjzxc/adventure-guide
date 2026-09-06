@@ -1,0 +1,483 @@
+/* Adventure Guide — 主题样式
+   设计取向：旧地图 + 探险日志 / 精装书风格
+   色系：白底 · 棕字 · 赭石强调
+*/
+
+:root {
+  --bg: #ffffff;
+  --bg-soft: #fbf8f2;
+  --bg-elev: #f2ece0;
+  --surface: #fdfaf3;
+  --surface-2: #f5ecd8;
+
+  --ink: #3d2b1f;
+  --ink-soft: #6b4f3a;
+  --ink-mute: #a1866b;
+
+  --accent: #a8622b;
+  --accent-2: #c77a3a;
+  --accent-3: #e9a66b;
+
+  --line: rgba(61,43,31,0.12);
+  --line-strong: rgba(61,43,31,0.25);
+
+  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 2px rgba(61,43,31,0.06);
+  --shadow: 0 6px 20px rgba(61,43,31,0.08);
+  --shadow-lg: 0 16px 36px rgba(61,43,31,0.12);
+
+  --font-serif: 'Cormorant Garamond', 'Times New Roman', 'Songti SC', 'Noto Serif SC', serif;
+  --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+
+  --max-w: 1080px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.7;
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(168,98,43,0.04) 0, transparent 40%),
+    radial-gradient(circle at 80% 100%, rgba(168,98,43,0.04) 0, transparent 45%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  margin: 0 0 0.5em;
+  color: var(--ink);
+}
+h1 { font-size: 2.2rem; }
+h2 { font-size: 1.7rem; }
+h3 { font-size: 1.3rem; }
+h4 { font-size: 1.1rem; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-2); text-decoration: underline; }
+
+/* ─── 页头 ──────────────────────────────────── */
+
+.site-header {
+  text-align: center;
+  padding: 48px 24px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.site-title {
+  font-size: 2.8rem;
+  margin-bottom: 8px;
+}
+.site-title a { color: var(--ink); text-decoration: none; }
+.site-subtitle {
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  margin: 0 0 16px;
+}
+.site-nav {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+.site-nav a {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+}
+.site-nav a:hover, .site-nav a.active {
+  background: var(--bg-elev);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* ─── 首页 ──────────────────────────────────── */
+
+.home { max-width: var(--max-w); margin: 0 auto; padding: 0 24px 80px; }
+
+.world-map-section, .worlds-section, .adventures-section {
+  margin-top: 48px;
+}
+.world-map-section h2, .worlds-section h2, .adventures-section h2 {
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 8px;
+  display: inline-block;
+}
+
+.world-map {
+  height: 420px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  margin-top: 16px;
+}
+
+.world-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+.world-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s;
+}
+.world-card:hover { box-shadow: var(--shadow); }
+.world-card h3 { margin-bottom: 8px; }
+.world-desc { color: var(--ink-soft); font-size: 0.95rem; margin: 0 0 12px; }
+.world-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: var(--ink-mute);
+  align-items: center;
+}
+.world-kind {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-elev);
+  font-size: 0.8rem;
+}
+.world-kind-real { background: #e8f0e0; color: #4a7a30; }
+.world-kind-historical { background: #f0e8d8; color: #8a6a20; }
+.world-kind-virtual { background: #e8e0f0; color: #5a3a7a; }
+
+.adventure-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+.adventure-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 24px;
+  color: var(--ink);
+  transition: all 0.2s;
+}
+.adventure-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+  text-decoration: none;
+  color: var(--ink);
+}
+.adventure-card h3 { margin-bottom: 4px; }
+.adventure-theme { color: var(--accent); font-size: 0.9rem; margin-bottom: 8px; }
+.adventure-route { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 8px; }
+.adventure-meta { color: var(--ink-mute); font-size: 0.85rem; }
+
+/* ─── 地点详情 ────────────────────────────────── */
+
+.place-page, .content-page, .adventure-page, .timeline-page {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+.place-detail, .content-detail, .adventure-detail, .timeline {
+  margin-top: 32px;
+}
+.place-header { margin-bottom: 24px; }
+.place-header h2 { font-size: 2rem; }
+.place-local-name { color: var(--ink-soft); font-size: 1.05rem; }
+.place-country { color: var(--ink-mute); font-size: 0.9rem; }
+.place-tags { margin-top: 8px; }
+
+.place-map {
+  height: 280px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+
+.place-summary {
+  background: var(--surface);
+  border-left: 4px solid var(--accent);
+  padding: 16px 20px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 24px;
+  color: var(--ink-soft);
+}
+
+.place-body { margin-bottom: 32px; line-height: 1.8; }
+.place-body p { margin: 0 0 1em; }
+
+/* ─── 内容卡片 ────────────────────────────────── */
+
+.content-list { margin-bottom: 32px; }
+.content-list h4 { margin-bottom: 12px; color: var(--ink-soft); }
+
+.content-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  color: var(--ink);
+  transition: all 0.15s;
+}
+.content-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--ink);
+}
+.content-kind {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: var(--bg-elev);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.content-kind-history { background: #f0e8d8; color: #8a6a20; }
+.content-kind-culture { background: #e8e0f0; color: #5a3a7a; }
+.content-kind-food { background: #f0dce0; color: #8a3a5a; }
+.content-kind-geography { background: #dce8f0; color: #3a5a7a; }
+.content-kind-people { background: #e0f0d8; color: #4a6a2a; }
+.content-kind-architecture { background: #e8e0d0; color: #6a5a3a; }
+.content-title { flex: 1; }
+.content-reading { color: var(--ink-mute); font-size: 0.85rem; }
+
+.content-mini {
+  display: inline-block;
+  padding: 3px 10px;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  margin: 3px 4px 3px 0;
+  color: var(--ink-soft);
+}
+.content-mini:hover { background: var(--accent-3); color: white; text-decoration: none; }
+
+/* ─── 内容详情页 ────────────────────────────────── */
+
+.content-detail .content-header { margin-bottom: 24px; }
+.content-detail .content-header h2 { font-size: 2rem; margin-top: 8px; }
+.content-meta {
+  display: flex;
+  gap: 16px;
+  color: var(--ink-mute);
+  font-size: 0.9rem;
+  margin: 8px 0;
+}
+.content-tags { margin-top: 8px; }
+.content-body { line-height: 1.8; margin-bottom: 32px; }
+.content-body p { margin: 0 0 1em; }
+.place-link {
+  display: inline-block;
+  margin-bottom: 16px;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+/* ─── 冒险详情页 ────────────────────────────────── */
+
+.adventure-header { margin-bottom: 24px; }
+.adventure-header h2 { font-size: 2rem; }
+.adventure-cover { color: var(--ink-soft); font-size: 1rem; }
+
+.adventure-map {
+  height: 320px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  margin-bottom: 32px;
+}
+
+.adventure-path { display: flex; flex-direction: column; gap: 0; }
+
+.adventure-step { display: flex; flex-direction: column; }
+.step-route {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  color: var(--ink-mute);
+}
+.route-arrow { font-size: 1.4rem; color: var(--accent); }
+.route-distance { font-size: 0.85rem; margin-top: 2px; }
+.route-highlights { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.route-highlights span {
+  padding: 2px 8px;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.step-place {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 8px;
+}
+.step-index {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  text-align: center;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  margin-right: 8px;
+}
+.step-place h3 { display: inline; }
+.step-summary { color: var(--ink-soft); margin: 8px 0; font-size: 0.95rem; }
+.step-contents { margin-top: 8px; }
+
+/* ─── 时间线 ────────────────────────────────── */
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 24px;
+}
+.timeline-item {
+  display: flex;
+  gap: 24px;
+}
+.timeline-anchor {
+  font-family: var(--font-serif);
+  font-size: 1.8rem;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: right;
+}
+.timeline-content {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+.timeline-places {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.timeline-place {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.timeline-place:hover { background: var(--accent-3); color: white; }
+
+/* ─── 反向引用 ────────────────────────────────── */
+
+.backlinks { margin-top: 32px; }
+.backlinks h4 { color: var(--ink-soft); margin-bottom: 8px; }
+.link-list { display: flex; gap: 8px; flex-wrap: wrap; }
+.link-list a {
+  display: inline-block;
+  padding: 4px 12px;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.link-list a:hover { background: var(--accent-3); color: white; }
+
+/* ─── wikilink ────────────────────────────────── */
+
+.ag-link { color: var(--accent); border-bottom: 1px dashed var(--accent); }
+.ag-link:hover { color: var(--accent-2); background: var(--bg-elev); text-decoration: none; }
+.ag-link-dead { color: var(--ink-mute); border-bottom: 1px dotted var(--ink-mute); cursor: default; }
+
+/* ─── 标签 ────────────────────────────────── */
+
+.tag {
+  display: inline-block;
+  padding: 2px 10px;
+  margin: 2px 4px 2px 0;
+  background: var(--bg-elev);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* ─── 页脚 ────────────────────────────────── */
+
+.site-footer {
+  text-align: center;
+  padding: 32px 24px;
+  border-top: 1px solid var(--line);
+  margin-top: 48px;
+  color: var(--ink-mute);
+  font-size: 0.9rem;
+}
+
+/* ─── 地图标记 ────────────────────────────────── */
+
+.ag-marker { background: transparent; }
+.ag-marker-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #a8622b;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(168,98,43,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #fff;
+  font-weight: 600;
+}
+.ag-marker-dot-active {
+  background: #c77a3a;
+  width: 16px;
+  height: 16px;
+}
+.ag-popup strong { font-size: 1.1rem; }
+
+/* ─── 图片 ────────────────────────────────── */
+
+.ag-img { max-width: 100%; height: auto; border-radius: var(--radius-sm); margin: 16px 0; }
+
+/* ─── 响应式 ────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .site-title { font-size: 2rem; }
+  .world-map, .adventure-map, .place-map { height: 280px; }
+  .world-grid, .adventure-grid { grid-template-columns: 1fr; }
+  .timeline-item { flex-direction: column; gap: 8px; }
+  .timeline-anchor { text-align: left; min-width: 0; }
+}

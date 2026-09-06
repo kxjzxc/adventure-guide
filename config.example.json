@@ -1,0 +1,11 @@
+{
+  "vaultPath": "./vault",
+  "outputPath": "./dist",
+  "storage": "local",
+  "theme": "default",
+  "site": {
+    "title": "世界冒险指南",
+    "subtitle": "通过一次冒险，认识一个原本不了解的世界",
+    "base": "/"
+  }
+}
