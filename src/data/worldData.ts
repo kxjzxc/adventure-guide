@@ -121,8 +121,10 @@ export const PLACES: Place[] = [
 
 // ============================================================
 // Route 路线
-// 连接两个地点的路径。Route 是 graph 的有向边；
+// 连接两个地点的路径。Route 是 graph 的无向边（UNDIRECTED edge）；
 // Place 是 graph 的节点。Adventure = 节点序列 + 边序列。
+// fromPlaceId / toPlaceId 只是两端点的稳定 ID，不代表方向约束，
+// 正向（SG→BK）与反向（BK→SG）旅行共用同一条 Route。
 //
 // MVP 限制：buildAdventurePath 仅支持在预设链路（SG→BK→HN→KM→CD→XA→BJ）
 // 上查找连续子段。这是实现限制，不是模型限制——
