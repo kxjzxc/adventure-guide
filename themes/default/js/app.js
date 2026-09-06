@@ -107,15 +107,9 @@
       maxZoom: 19,
     }).addTo(amap);
 
-    var latlngs = window.AG_ADVENTURE_PLACES.map(function (c) { return [c[0], c[1]]; });
-
-    L.polyline(latlngs, {
-      color: '#a8622b',
-      weight: 3,
-      opacity: 0.7,
-    }).addTo(amap);
-
-    latlngs.forEach(function (ll, i) {
+    // 地点标记
+    var placeLatLngs = window.AG_ADVENTURE_PLACES.map(function (c) { return [c[0], c[1]]; });
+    placeLatLngs.forEach(function (ll, i) {
       L.marker(ll, {
         icon: L.divIcon({
           className: 'ag-marker',
@@ -126,6 +120,28 @@
       }).addTo(amap);
     });
 
-    amap.fitBounds(latlngs, { padding: [40, 40] });
+    // 路线段：优先用 AG_ADVENTURE_SEGMENTS（沿 Route.path 的真实曲线），
+    // 缺失时回退为地点两点连成的单条折线。
+    var allLatLngs = [];
+    if (window.AG_ADVENTURE_SEGMENTS && window.AG_ADVENTURE_SEGMENTS.length > 0) {
+      window.AG_ADVENTURE_SEGMENTS.forEach(function (seg) {
+        var segLatLngs = seg.map(function (c) { return [c[0], c[1]]; });
+        L.polyline(segLatLngs, {
+          color: '#a8622b',
+          weight: 3,
+          opacity: 0.7,
+        }).addTo(amap);
+        allLatLngs = allLatLngs.concat(segLatLngs);
+      });
+    } else {
+      L.polyline(placeLatLngs, {
+        color: '#a8622b',
+        weight: 3,
+        opacity: 0.7,
+      }).addTo(amap);
+      allLatLngs = placeLatLngs;
+    }
+
+    amap.fitBounds(allLatLngs, { padding: [40, 40] });
   }
 })();

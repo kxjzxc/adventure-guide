@@ -95,7 +95,7 @@ export class ObsidianParser implements IParser {
         name: String(data.name || id),
         localName: data.local_name ? String(data.local_name) : undefined,
         type: (data.place_type as PlaceType) || 'city',
-        coords: this.parseCoords(data),
+        coords: this.parseCoords(data, `Place "${id}"`),
         country: data.country ? String(data.country) : undefined,
         summary: String(data.summary || ''),
         tags: this.parseTags(data.tags),
@@ -226,9 +226,27 @@ export class ObsidianParser implements IParser {
     return results.sort();
   }
 
-  private parseCoords(data: Record<string, unknown>): Coordinates {
-    const lat = Number(data.lat ?? data.latitude ?? 0);
-    const lng = Number(data.lng ?? data.lon ?? data.longitude ?? 0);
+  /**
+   * 解析坐标并严格校验：缺失 / 非数字 / 超出范围一律抛错，
+   * 避免 Place 被静默渲染到 (0,0)。
+   */
+  private parseCoords(data: Record<string, unknown>, context: string): Coordinates {
+    const latRaw = data.lat ?? data.latitude;
+    const lngRaw = data.lng ?? data.lon ?? data.longitude;
+    if (latRaw === undefined || lngRaw === undefined) {
+      throw new Error(`${context}: 缺少坐标 (lat/lng 或 latitude/longitude)`);
+    }
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error(`${context}: 坐标非数字 (lat=${String(latRaw)}, lng=${String(lngRaw)})`);
+    }
+    if (lat < -90 || lat > 90) {
+      throw new Error(`${context}: 纬度越界 lat=${lat}（应在 -90~90）`);
+    }
+    if (lng < -180 || lng > 180) {
+      throw new Error(`${context}: 经度越界 lng=${lng}（应在 -180~180）`);
+    }
     return { lat, lng };
   }
 

@@ -28,6 +28,7 @@ import type {
   PlaceIndexEntry,
   ContentIndexEntry,
   AdventureIndexEntry,
+  WikilinkRef,
 } from '../../types';
 
 export class DefaultRenderer implements IRenderer {
@@ -39,12 +40,11 @@ export class DefaultRenderer implements IRenderer {
 
     // 建立查询索引
     const index = this.buildIndex(vault);
-    const nameToPlaceId = this.buildNameToPlaceMap(vault);
-    const nameToContentId = this.buildNameToContentMap(vault);
+    // World-scoped wikilink 解析器：同 worldId 优先，跨 world 回退
+    const resolve = this.buildWikilinkResolver(vault);
 
-    // 全量数据 JSON —— 仅写入 index.json，不再内联到每个 HTML 页面
-    // （页面所需的地图 / 导航数据通过 window.AG_* 内联，或由客户端按需 fetch index.json）
-    const siteData = this.buildSiteData(vault, index);
+    // 全量数据 JSON —— 仅写入 index.json，site 元信息取自 config
+    const siteData = this.buildSiteData(vault, index, config.site);
 
     // 1. 世界首页（地图 + 冒险列表）
     await storage.save('index.html', this.renderHome(vault, index, config.site, base));
@@ -52,16 +52,18 @@ export class DefaultRenderer implements IRenderer {
     // 2. 时间线
     await storage.save('timeline.html', this.renderTimeline(vault, config.site, base));
 
-    // 3. 地点详情页
+    // 3. 地点详情页（Place→Content 查询带 worldId，避免跨 World 串内容）
     for (const place of vault.places) {
-      const placeContents = vault.contents.filter((c) => c.placeId === place.id);
-      const html = this.renderPlace(place, placeContents, vault, nameToPlaceId, nameToContentId, config.site, base);
+      const placeContents = vault.contents.filter(
+        (c) => c.placeId === place.id && c.worldId === place.worldId,
+      );
+      const html = this.renderPlace(place, placeContents, vault, resolve, config.site, base);
       await storage.save(`places/${place.id}.html`, html);
     }
 
     // 4. 内容详情页
     for (const content of vault.contents) {
-      const html = this.renderContent(content, vault, nameToPlaceId, nameToContentId, config.site, base);
+      const html = this.renderContent(content, vault, resolve, config.site, base);
       await storage.save(`content/${content.id}.html`, html);
     }
 
@@ -103,9 +105,13 @@ export class DefaultRenderer implements IRenderer {
     return { worlds, places, contents, adventures };
   }
 
-  private buildSiteData(vault: ParsedVault, index: ReturnType<DefaultRenderer['buildIndex']>) {
+  private buildSiteData(
+    vault: ParsedVault,
+    index: ReturnType<DefaultRenderer['buildIndex']>,
+    site: { title: string; subtitle: string },
+  ) {
     return {
-      site: { title: '', subtitle: '' },
+      site: { title: site.title, subtitle: site.subtitle },
       worlds: vault.worlds,
       places: vault.places.map((p) => ({
         id: p.id, worldId: p.worldId, name: p.name, localName: p.localName,
@@ -128,21 +134,66 @@ export class DefaultRenderer implements IRenderer {
     };
   }
 
-  private buildNameToPlaceMap(vault: ParsedVault): Map<string, string> {
-    const m = new Map<string, string>();
-    for (const p of vault.places) {
-      m.set(p.name.toLowerCase(), p.id);
-      if (p.localName) m.set(p.localName.toLowerCase(), p.id);
-    }
-    return m;
-  }
+  /**
+   * 构建 World-scoped wikilink 解析器。
+   * 返回 (ref, sourceWorldId) → { type, id } | undefined
+   *   - 带路径前缀（[[places/X]] / [[content/X]]）→ 仅对应类型
+   *   - 无前缀（[[X]]）→ place 优先 content
+   *   - 优先在 sourceWorldId 内查找；跨 World 仅作 fallback
+   * ID 在 Vault 内全局唯一，同名对象在不同 World 间靠 worldId 区分。
+   */
+  private buildWikilinkResolver(
+    vault: ParsedVault,
+  ): (ref: WikilinkRef, sourceWorldId: string) => { type: 'place' | 'content'; id: string } | undefined {
+    const placeByWorld = new Map<string, Map<string, string>>();
+    const contentByWorld = new Map<string, Map<string, string>>();
+    const placeAny = new Map<string, string>();
+    const contentAny = new Map<string, string>();
 
-  private buildNameToContentMap(vault: ParsedVault): Map<string, string> {
-    const m = new Map<string, string>();
-    for (const c of vault.contents) {
-      m.set(c.title.toLowerCase(), c.id);
+    const upsert = (
+      byWorld: Map<string, Map<string, string>>,
+      any: Map<string, string>,
+      worldId: string,
+      key: string,
+      id: string,
+    ) => {
+      let inner = byWorld.get(worldId);
+      if (!inner) { inner = new Map(); byWorld.set(worldId, inner); }
+      if (!inner.has(key)) inner.set(key, id);
+      if (!any.has(key)) any.set(key, id);
+    };
+
+    for (const p of vault.places) {
+      upsert(placeByWorld, placeAny, p.worldId, p.name.toLowerCase(), p.id);
+      if (p.localName) upsert(placeByWorld, placeAny, p.worldId, p.localName.toLowerCase(), p.id);
     }
-    return m;
+    for (const c of vault.contents) {
+      upsert(contentByWorld, contentAny, c.worldId, c.title.toLowerCase(), c.id);
+    }
+
+    type Target = { type: 'place' | 'content'; id: string };
+    const lookup = (
+      byWorld: Map<string, Map<string, string>>,
+      any: Map<string, string>,
+      worldId: string,
+      key: string,
+      type: 'place' | 'content',
+    ): Target | undefined => {
+      const id = byWorld.get(worldId)?.get(key) ?? any.get(key);
+      return id ? { type, id } : undefined;
+    };
+
+    return (ref, sourceWorldId) => {
+      const key = ref.name.toLowerCase();
+      if (ref.path === 'places') {
+        return lookup(placeByWorld, placeAny, sourceWorldId, key, 'place');
+      }
+      if (ref.path === 'content') {
+        return lookup(contentByWorld, contentAny, sourceWorldId, key, 'content');
+      }
+      return lookup(placeByWorld, placeAny, sourceWorldId, key, 'place')
+        ?? lookup(contentByWorld, contentAny, sourceWorldId, key, 'content');
+    };
   }
 
   /**
@@ -152,12 +203,13 @@ export class DefaultRenderer implements IRenderer {
    *   #places/Tokyo → 仅查 place
    *   #content/Tokyo → 仅查 content
    *   #Tokyo → 通用查找（place 优先）
+   * 解析以页面所属 worldId 为 scope（同 world 优先，跨 world 回退）。
    * 找不到目标时渲染为死链 span。
    */
   private resolveWikilinks(
     html: string,
-    nameToPlaceId: Map<string, string>,
-    nameToContentId: Map<string, string>,
+    resolve: (ref: WikilinkRef, sourceWorldId: string) => { type: 'place' | 'content'; id: string } | undefined,
+    sourceWorldId: string,
     base: string,
   ): string {
     return html.replace(
@@ -171,26 +223,11 @@ export class DefaultRenderer implements IRenderer {
           path = raw.slice(0, slashIdx).trim().toLowerCase();
           name = raw.slice(slashIdx + 1).trim();
         }
-        const key = name.toLowerCase();
-
-        const linkToPlace = (id: string) =>
-          `<a href="${base}places/${id}.html" class="ag-link ag-link-place">`;
-        const linkToContent = (id: string) =>
-          `<a href="${base}content/${id}.html" class="ag-link ag-link-content">`;
-
-        if (path === 'places') {
-          const id = nameToPlaceId.get(key);
-          return id ? linkToPlace(id) : `<span class="ag-link-dead">`;
-        }
-        if (path === 'content') {
-          const id = nameToContentId.get(key);
-          return id ? linkToContent(id) : `<span class="ag-link-dead">`;
-        }
-        const placeId = nameToPlaceId.get(key);
-        if (placeId) return linkToPlace(placeId);
-        const contentId = nameToContentId.get(key);
-        if (contentId) return linkToContent(contentId);
-        return `<span class="ag-link-dead">`;
+        const target = resolve({ name, path }, sourceWorldId);
+        if (!target) return `<span class="ag-link-dead">`;
+        return target.type === 'place'
+          ? `<a href="${base}places/${target.id}.html" class="ag-link ag-link-place">`
+          : `<a href="${base}content/${target.id}.html" class="ag-link ag-link-content">`;
       },
     ).replace(
       /<span class="ag-link-dead">([^<]+)<\/a>/g,
@@ -239,11 +276,16 @@ export class DefaultRenderer implements IRenderer {
       `{ id: '${p.id}', name: ${JSON.stringify(p.name)}, lat: ${p.coords.lat}, lng: ${p.coords.lng}, url: '${base}places/${p.id}.html' }`,
     ).join(',\n      ');
 
+    // 路线折线：优先使用 Route.path（沿铁路/公路/河流的真实曲线），
+    // 缺失时 fallback 为 from→to 两点直线。
     const routeLines = vault.routes.map((r) => {
       const from = vault.places.find((p) => p.id === r.fromPlaceId);
       const to = vault.places.find((p) => p.id === r.toPlaceId);
       if (!from || !to) return '';
-      return `[[${from.coords.lat},${from.coords.lng}],[${to.coords.lat},${to.coords.lng}]]`;
+      const pts = (r.path && r.path.length >= 2)
+        ? r.path
+        : [from.coords, to.coords];
+      return '[' + pts.map((c) => `[${c.lat},${c.lng}]`).join(',') + ']';
     }).filter(Boolean).join(',');
 
     return `<!DOCTYPE html>
@@ -301,12 +343,11 @@ export class DefaultRenderer implements IRenderer {
     place: Place,
     placeContents: ContentItem[],
     vault: ParsedVault,
-    nameToPlaceId: Map<string, string>,
-    nameToContentId: Map<string, string>,
+    resolve: (ref: WikilinkRef, sourceWorldId: string) => { type: 'place' | 'content'; id: string } | undefined,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
-    const body = this.resolveWikilinks(place.bodyHtml || '', nameToPlaceId, nameToContentId, base);
+    const body = this.resolveWikilinks(place.bodyHtml || '', resolve, place.worldId, base);
     const tagsHtml = place.tags.map((t) => `<span class="tag">${t}</span>`).join('');
     const backlinksHtml = (place.backlinkIds || []).length > 0
       ? `<div class="backlinks"><h4>被引用</h4><div class="link-list">${place.backlinkIds!.map((id) => {
@@ -377,12 +418,11 @@ export class DefaultRenderer implements IRenderer {
   private renderContent(
     content: ContentItem,
     vault: ParsedVault,
-    nameToPlaceId: Map<string, string>,
-    nameToContentId: Map<string, string>,
+    resolve: (ref: WikilinkRef, sourceWorldId: string) => { type: 'place' | 'content'; id: string } | undefined,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
-    const body = this.resolveWikilinks(content.bodyHtml, nameToPlaceId, nameToContentId, base);
+    const body = this.resolveWikilinks(content.bodyHtml, resolve, content.worldId, base);
     const tagsHtml = content.tags.map((t) => `<span class="tag">${t}</span>`).join('');
     const placeLink = content.placeId
       ? `<a class="place-link" href="${base}places/${content.placeId}.html">← ${(vault.places.find((p) => p.id === content.placeId)?.name) || content.placeId}</a>`
@@ -466,9 +506,22 @@ export class DefaultRenderer implements IRenderer {
         </div>`;
     }).join('');
 
+    // 地点标记坐标（用于地图标记）
     const placeMarkers = adv.placeIds.map((pid) => {
       const p = vault.places.find((pl) => pl.id === pid);
       return p ? `[[${p.coords.lat},${p.coords.lng}]]` : '';
+    }).filter(Boolean).join(',');
+
+    // 路线段：每段 route 优先用 path（真实曲线），fallback 到两端点直线。
+    // app.js 按段画 polyline，拼接出沿 Route.path 的完整冒险路线。
+    const segments = adv.routeIds.map((rid, i) => {
+      const r = vault.routes.find((x) => x.id === rid);
+      if (!r) return '';
+      const from = vault.places.find((p) => p.id === r.fromPlaceId);
+      const to = vault.places.find((p) => p.id === r.toPlaceId);
+      if (!from || !to) return '';
+      const pts = (r.path && r.path.length >= 2) ? r.path : [from.coords, to.coords];
+      return '[' + pts.map((c) => `[${c.lat},${c.lng}]`).join(',') + ']';
     }).filter(Boolean).join(',');
 
     return `<!DOCTYPE html>
@@ -504,6 +557,7 @@ export class DefaultRenderer implements IRenderer {
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     window.AG_ADVENTURE_PLACES = [${placeMarkers}];
+    window.AG_ADVENTURE_SEGMENTS = [${segments}];
     window.AG_BASE = ${JSON.stringify(base)};
   </script>
   <script src="${base}js/app.js"></script>

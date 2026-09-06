@@ -143,15 +143,22 @@ export class Builder {
     const errors: string[] = [];
 
     for (const adv of vault.adventures) {
-      // 1. placeIds / routeIds 存在性
+      // 1. placeIds 存在性 + World 一致性
       for (const pid of adv.placeIds) {
-        if (!placeMap.has(pid)) {
+        const p = placeMap.get(pid);
+        if (!p) {
           errors.push(`冒险 "${adv.id}": placeId "${pid}" 不存在`);
+        } else if (p.worldId !== adv.worldId) {
+          errors.push(`冒险 "${adv.id}" 属于 world "${adv.worldId}"，但 place "${pid}" 属于 world "${p.worldId}"`);
         }
       }
+      // routeIds 存在性 + World 一致性
       for (const rid of adv.routeIds) {
-        if (!routeMap.has(rid)) {
+        const r = routeMap.get(rid);
+        if (!r) {
           errors.push(`冒险 "${adv.id}": routeId "${rid}" 不存在`);
+        } else if (r.worldId !== adv.worldId) {
+          errors.push(`冒险 "${adv.id}" 属于 world "${adv.worldId}"，但 route "${rid}" 属于 world "${r.worldId}"`);
         }
       }
 
@@ -190,44 +197,65 @@ export class Builder {
    * 构建双向引用关系：
    *   [[wikilink]] 引用 → 目标条目收集反向引用 backlinkIds
    *
-   * wikilink 解析优先级：
+   * wikilink 解析（World-scoped，ID 在 Vault 内全局唯一）：
    *   1. 带路径前缀（[[places/Tokyo]] / [[content/Tokyo]]）→ 仅在对应类型中查找
-   *   2. 无前缀（[[Tokyo]]）→ 合并映射查找，同名时 place 优先于 content
+   *   2. 无前缀（[[Tokyo]]）→ place 优先于 content
+   *   3. 优先在 source 对象所属 worldId 内查找；找不到再跨 World 回退
+   *      （同名对象时，同 World 命中视为正确引用；跨 World 命中仅作 fallback）
    *
    * 未解析的 wikilink 输出 warning，不阻断构建。
    */
   private buildRelations(vault: ParsedVault): void {
-    const nameToPlaceId = new Map<string, string>();
-    for (const p of vault.places) {
-      nameToPlaceId.set(p.name.toLowerCase(), p.id);
-      if (p.localName) nameToPlaceId.set(p.localName.toLowerCase(), p.id);
-    }
-    const nameToContentId = new Map<string, string>();
-    for (const c of vault.contents) {
-      nameToContentId.set(c.title.toLowerCase(), c.id);
-    }
+    // worldId → (name → id) 的分桶
+    const placeByWorld = new Map<string, Map<string, string>>();
+    const contentByWorld = new Map<string, Map<string, string>>();
+    // 跨 World fallback：name → id（ID 全局唯一，跨 World 同名对象 id 不同）
+    const placeAny = new Map<string, string>();
+    const contentAny = new Map<string, string>();
 
-    // 合并映射：任意条目名 → id（同名时 place 胜出）
-    const nameToId = new Map<string, { type: 'place' | 'content'; id: string }>();
-    for (const [name, id] of nameToPlaceId) {
-      nameToId.set(name, { type: 'place', id });
+    const upsert = (
+      byWorld: Map<string, Map<string, string>>,
+      any: Map<string, string>,
+      worldId: string,
+      key: string,
+      id: string,
+    ) => {
+      let inner = byWorld.get(worldId);
+      if (!inner) { inner = new Map(); byWorld.set(worldId, inner); }
+      if (!inner.has(key)) inner.set(key, id);
+      if (!any.has(key)) any.set(key, id);
+    };
+
+    for (const p of vault.places) {
+      upsert(placeByWorld, placeAny, p.worldId, p.name.toLowerCase(), p.id);
+      if (p.localName) upsert(placeByWorld, placeAny, p.worldId, p.localName.toLowerCase(), p.id);
     }
-    for (const [name, id] of nameToContentId) {
-      if (!nameToId.has(name)) nameToId.set(name, { type: 'content', id });
+    for (const c of vault.contents) {
+      upsert(contentByWorld, contentAny, c.worldId, c.title.toLowerCase(), c.id);
     }
 
     type Target = { type: 'place' | 'content'; id: string };
-    const resolveRef = (ref: WikilinkRef): Target | undefined => {
+    const lookup = (
+      byWorld: Map<string, Map<string, string>>,
+      any: Map<string, string>,
+      worldId: string,
+      key: string,
+      type: 'place' | 'content',
+    ): Target | undefined => {
+      const id = byWorld.get(worldId)?.get(key) ?? any.get(key);
+      return id ? { type, id } : undefined;
+    };
+
+    const resolveRef = (ref: WikilinkRef, sourceWorldId: string): Target | undefined => {
       const key = ref.name.toLowerCase();
       if (ref.path === 'places') {
-        const id = nameToPlaceId.get(key);
-        return id ? { type: 'place', id } : undefined;
+        return lookup(placeByWorld, placeAny, sourceWorldId, key, 'place');
       }
       if (ref.path === 'content') {
-        const id = nameToContentId.get(key);
-        return id ? { type: 'content', id } : undefined;
+        return lookup(contentByWorld, contentAny, sourceWorldId, key, 'content');
       }
-      return nameToId.get(key);
+      return lookup(placeByWorld, placeAny, sourceWorldId, key, 'place')
+        ?? lookup(contentByWorld, contentAny, sourceWorldId, key, 'content');
     };
 
     const addBacklink = (targetType: 'place' | 'content', targetId: string, sourceId: string) => {
@@ -245,8 +273,8 @@ export class Builder {
     };
 
     const unresolved: string[] = [];
-    const trackRef = (sourceId: string, ref: WikilinkRef) => {
-      const target = resolveRef(ref);
+    const trackRef = (sourceId: string, sourceWorldId: string, ref: WikilinkRef) => {
+      const target = resolveRef(ref, sourceWorldId);
       if (target) {
         if (target.id !== sourceId) addBacklink(target.type, target.id, sourceId);
       } else {
@@ -256,10 +284,10 @@ export class Builder {
     };
 
     for (const place of vault.places) {
-      for (const ref of place.links || []) trackRef(place.id, ref);
+      for (const ref of place.links || []) trackRef(place.id, place.worldId, ref);
     }
     for (const content of vault.contents) {
-      for (const ref of content.links) trackRef(content.id, ref);
+      for (const ref of content.links) trackRef(content.id, content.worldId, ref);
     }
 
     for (const u of unresolved) {
