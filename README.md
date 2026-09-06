@@ -128,7 +128,7 @@ npm run preview
 | 点 | MVP 现状 | 后续方向 |
 |---|---|---|
 | 路径生成 | 仅在预设链路上查找连续子段 | 全图 Dijkstra / A* 寻路、多条候选路径 |
-| 图结构 | Route 仍是单向边 + 反向匹配 | 真正的有向图 + 多 Route 复用节点 |
+| 图结构 | Route 是无向边（fromPlaceId/toPlaceId 仅为端点稳定 ID） | 需要方向语义时拆成两条有向边或新增 `direction` 字段 |
 | 数据来源 | 内置静态 JSON | 接入 Wiki / Wikidata / OpenStreetMap POI 等 |
 | 多世界 | 只实现了 `earth-present` | `earth-1920`（历史世界）与虚拟世界 |
 | 记录同步 | LocalStorage | 多端同步 / 导出 Markdown / 分享链接 |
