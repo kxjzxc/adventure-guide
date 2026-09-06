@@ -72,18 +72,49 @@ function startWatch(config: AGConfig, onRebuild: () => void): void {
     }, 300);
   };
 
+  const isWatchable = (name: string) => {
+    const ext = path.extname(name).toLowerCase();
+    return ext === '.md' || ext === '.png' || ext === '.jpg' || ext === '.svg';
+  };
+
+  // 轮询 fallback：当 fs.watch 不可用时（如某些网络文件系统），
+  // 通过定期比对 mtime 真正实现变更检测。
+  const startPolling = (watchPath: string) => {
+    const mtimes = new Map<string, number>();
+    const scan = (dir: string) => {
+      if (!fs.existsSync(dir)) return;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          scan(full);
+          continue;
+        }
+        if (!isWatchable(entry.name)) continue;
+        try {
+          const mtime = fs.statSync(full).mtimeMs;
+          if (mtimes.has(full) && mtimes.get(full) !== mtime) {
+            triggerRebuild();
+          }
+          mtimes.set(full, mtime);
+        } catch {
+          /* 忽略瞬时不可访问的文件 */
+        }
+      }
+    };
+    scan(watchPath); // 初始基线
+    setInterval(() => scan(watchPath), 1000);
+  };
+
   for (const watchPath of watchPaths) {
     try {
       fs.watch(watchPath, { recursive: true }, (_eventType, filename) => {
-        if (!filename) return;
-        const ext = path.extname(filename).toLowerCase();
-        if (ext === '.md' || ext === '.png' || ext === '.jpg' || ext === '.svg') {
-          triggerRebuild();
-        }
+        if (!filename || !isWatchable(filename)) return;
+        triggerRebuild();
       });
       console.log(chalk.gray(`   监听: ${watchPath}`));
     } catch {
-      console.log(chalk.gray(`   轮询: ${watchPath}`));
+      console.log(chalk.gray(`   轮询: ${watchPath} (fs.watch 不可用，每秒比对 mtime)`));
+      startPolling(watchPath);
     }
   }
 }

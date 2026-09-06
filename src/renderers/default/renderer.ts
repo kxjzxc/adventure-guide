@@ -42,39 +42,39 @@ export class DefaultRenderer implements IRenderer {
     const nameToPlaceId = this.buildNameToPlaceMap(vault);
     const nameToContentId = this.buildNameToContentMap(vault);
 
-    // 全量数据 JSON（供客户端地图、导航用）
+    // 全量数据 JSON —— 仅写入 index.json，不再内联到每个 HTML 页面
+    // （页面所需的地图 / 导航数据通过 window.AG_* 内联，或由客户端按需 fetch index.json）
     const siteData = this.buildSiteData(vault, index);
-    const siteDataJson = JSON.stringify(siteData).replace(/<\/script/gi, '<\\/script');
 
     // 1. 世界首页（地图 + 冒险列表）
-    await storage.save('index.html', this.renderHome(vault, index, siteDataJson, config.site, base));
+    await storage.save('index.html', this.renderHome(vault, index, config.site, base));
 
     // 2. 时间线
-    await storage.save('timeline.html', this.renderTimeline(vault, siteDataJson, config.site, base));
+    await storage.save('timeline.html', this.renderTimeline(vault, config.site, base));
 
     // 3. 地点详情页
     for (const place of vault.places) {
       const placeContents = vault.contents.filter((c) => c.placeId === place.id);
-      const html = this.renderPlace(place, placeContents, vault, nameToPlaceId, nameToContentId, siteDataJson, config.site, base);
+      const html = this.renderPlace(place, placeContents, vault, nameToPlaceId, nameToContentId, config.site, base);
       await storage.save(`places/${place.id}.html`, html);
     }
 
     // 4. 内容详情页
     for (const content of vault.contents) {
-      const html = this.renderContent(content, vault, nameToPlaceId, nameToContentId, siteDataJson, config.site, base);
+      const html = this.renderContent(content, vault, nameToPlaceId, nameToContentId, config.site, base);
       await storage.save(`content/${content.id}.html`, html);
     }
 
     // 5. 冒险详情页
     for (const adv of vault.adventures) {
-      const html = this.renderAdventure(adv, vault, siteDataJson, config.site, base);
+      const html = this.renderAdventure(adv, vault, config.site, base);
       await storage.save(`adventures/${adv.id}.html`, html);
     }
 
-    // 6. index.json
+    // 6. index.json（全量数据，供客户端按需加载）
     await storage.save('index.json', JSON.stringify(siteData, null, 2));
 
-    // 7. 复制主题资源
+    // 7. 复制主题资源（通过 Storage 写出，不直接操作输出 fs）
     await this.copyThemeAssets(ctx);
   }
 
@@ -146,8 +146,13 @@ export class DefaultRenderer implements IRenderer {
   }
 
   /**
-   * 把 contentHtml 中的 wikilink 锚点（#Page Name）解析为真实页面路径。
-   * 如果找不到目标，渲染为死链 span。
+   * 把 bodyHtml 中的 wikilink 锚点解析为真实页面路径。
+   *
+   * 锚点可能带路径前缀（renderMarkdown 保留）：
+   *   #places/Tokyo → 仅查 place
+   *   #content/Tokyo → 仅查 content
+   *   #Tokyo → 通用查找（place 优先）
+   * 找不到目标时渲染为死链 span。
    */
   private resolveWikilinks(
     html: string,
@@ -158,15 +163,33 @@ export class DefaultRenderer implements IRenderer {
     return html.replace(
       /<a href="#([^"]+)" class="ag-link">/g,
       (_match, encoded: string) => {
-        const name = decodeURIComponent(encoded).toLowerCase();
-        const placeId = nameToPlaceId.get(name);
-        if (placeId) {
-          return `<a href="${base}places/${placeId}.html" class="ag-link ag-link-place">`;
+        const raw = decodeURIComponent(encoded);
+        let path: string | undefined;
+        let name = raw;
+        const slashIdx = raw.indexOf('/');
+        if (slashIdx >= 0) {
+          path = raw.slice(0, slashIdx).trim().toLowerCase();
+          name = raw.slice(slashIdx + 1).trim();
         }
-        const contentId = nameToContentId.get(name);
-        if (contentId) {
-          return `<a href="${base}content/${contentId}.html" class="ag-link ag-link-content">`;
+        const key = name.toLowerCase();
+
+        const linkToPlace = (id: string) =>
+          `<a href="${base}places/${id}.html" class="ag-link ag-link-place">`;
+        const linkToContent = (id: string) =>
+          `<a href="${base}content/${id}.html" class="ag-link ag-link-content">`;
+
+        if (path === 'places') {
+          const id = nameToPlaceId.get(key);
+          return id ? linkToPlace(id) : `<span class="ag-link-dead">`;
         }
+        if (path === 'content') {
+          const id = nameToContentId.get(key);
+          return id ? linkToContent(id) : `<span class="ag-link-dead">`;
+        }
+        const placeId = nameToPlaceId.get(key);
+        if (placeId) return linkToPlace(placeId);
+        const contentId = nameToContentId.get(key);
+        if (contentId) return linkToContent(contentId);
         return `<span class="ag-link-dead">`;
       },
     ).replace(
@@ -180,7 +203,6 @@ export class DefaultRenderer implements IRenderer {
   private renderHome(
     vault: ParsedVault,
     index: ReturnType<DefaultRenderer['buildIndex']>,
-    siteDataJson: string,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -234,8 +256,6 @@ export class DefaultRenderer implements IRenderer {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="home">
-  <div id="site-data" style="display:none">${siteDataJson}</div>
-
   <header class="site-header">
     <h1 class="site-title">${site.title}</h1>
     <p class="site-subtitle">${site.subtitle}</p>
@@ -283,7 +303,6 @@ export class DefaultRenderer implements IRenderer {
     vault: ParsedVault,
     nameToPlaceId: Map<string, string>,
     nameToContentId: Map<string, string>,
-    siteDataJson: string,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -318,8 +337,6 @@ export class DefaultRenderer implements IRenderer {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="place-page">
-  <div id="site-data" style="display:none">${siteDataJson}</div>
-
   <header class="site-header">
     <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
     <nav class="site-nav">
@@ -362,7 +379,6 @@ export class DefaultRenderer implements IRenderer {
     vault: ParsedVault,
     nameToPlaceId: Map<string, string>,
     nameToContentId: Map<string, string>,
-    siteDataJson: string,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -391,8 +407,6 @@ export class DefaultRenderer implements IRenderer {
   <link rel="stylesheet" href="${base}css/style.css">
 </head>
 <body class="content-page">
-  <div id="site-data" style="display:none">${siteDataJson}</div>
-
   <header class="site-header">
     <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
     <nav class="site-nav">
@@ -427,7 +441,6 @@ export class DefaultRenderer implements IRenderer {
   private renderAdventure(
     adv: Adventure,
     vault: ParsedVault,
-    siteDataJson: string,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -468,8 +481,6 @@ export class DefaultRenderer implements IRenderer {
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body class="adventure-page">
-  <div id="site-data" style="display:none">${siteDataJson}</div>
-
   <header class="site-header">
     <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
     <nav class="site-nav">
@@ -502,7 +513,6 @@ export class DefaultRenderer implements IRenderer {
 
   private renderTimeline(
     vault: ParsedVault,
-    siteDataJson: string,
     site: { title: string; subtitle: string },
     base: string,
   ): string {
@@ -534,8 +544,6 @@ export class DefaultRenderer implements IRenderer {
   <link rel="stylesheet" href="${base}css/style.css">
 </head>
 <body class="timeline-page">
-  <div id="site-data" style="display:none">${siteDataJson}</div>
-
   <header class="site-header">
     <h1 class="site-title"><a href="${base}index.html">${site.title}</a></h1>
     <nav class="site-nav">
@@ -556,28 +564,25 @@ export class DefaultRenderer implements IRenderer {
 
   // ─── 主题资源复制 ────────────────────────────────────────
 
+  /**
+   * 从 themes/default 读取主题资源并通过 Storage 写入输出目录。
+   * 读源文件用 fs（不属于 Storage 职责），写输出统一走 Storage。
+   */
   private async copyThemeAssets(ctx: RenderContext): Promise<void> {
     const themesDir = path.join(process.cwd(), 'themes', 'default');
     const cssSrc = path.join(themesDir, 'css');
     const jsSrc = path.join(themesDir, 'js');
-    const cssDest = path.join(ctx.outputPath, 'css');
-    const jsDest = path.join(ctx.outputPath, 'js');
 
-    if (fs.existsSync(cssSrc)) {
-      fs.mkdirSync(cssDest, { recursive: true });
-      for (const file of fs.readdirSync(cssSrc)) {
-        if (file.endsWith('.css')) {
-          fs.copyFileSync(path.join(cssSrc, file), path.join(cssDest, file));
-        }
+    const copyDir = async (srcDir: string, destRel: string, ext: string) => {
+      if (!fs.existsSync(srcDir)) return;
+      for (const file of fs.readdirSync(srcDir)) {
+        if (!file.endsWith(ext)) continue;
+        const content = fs.readFileSync(path.join(srcDir, file));
+        await ctx.storage.save(`${destRel}/${file}`, content);
       }
-    }
-    if (fs.existsSync(jsSrc)) {
-      fs.mkdirSync(jsDest, { recursive: true });
-      for (const file of fs.readdirSync(jsSrc)) {
-        if (file.endsWith('.js')) {
-          fs.copyFileSync(path.join(jsSrc, file), path.join(jsDest, file));
-        }
-      }
-    }
+    };
+
+    await copyDir(cssSrc, 'css', '.css');
+    await copyDir(jsSrc, 'js', '.js');
   }
 }

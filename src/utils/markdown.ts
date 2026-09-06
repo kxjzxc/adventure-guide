@@ -3,29 +3,50 @@
  */
 
 import { marked } from 'marked';
+import type { WikilinkRef } from '../types';
 
 marked.setOptions({
   breaks: true,
   gfm: true,
 });
 
-/** 从文本中提取 [[wikilink]] 引用的条目名（排除图片嵌入 ![[...]]） */
-export function extractWikilinks(text: string): string[] {
-  const links = new Set<string>();
+/** 解析单个 wikilink target（`Page` / `path/Page` / `Page|alias` / `path/Page|alias`） */
+function parseWikilinkTarget(target: string): WikilinkRef & { alias?: string } {
+  const [left, alias] = target.split('|');
+  const t = (left || '').trim();
+  let path: string | undefined;
+  let name = t;
+  const slashIdx = t.indexOf('/');
+  if (slashIdx >= 0) {
+    path = t.slice(0, slashIdx).trim().toLowerCase();
+    name = t.slice(slashIdx + 1).trim();
+  }
+  const trimmedAlias = alias?.trim();
+  return { name, path, alias: trimmedAlias || undefined };
+}
+
+/** 从文本中提取 [[wikilink]] 引用（排除图片嵌入 ![[...]]），保留路径前缀以消歧义 */
+export function extractWikilinks(text: string): WikilinkRef[] {
+  const seen = new Set<string>();
+  const refs: WikilinkRef[] = [];
   const regex = /(?<!!)\[\[([^\]]+)\]\]/g;
   let m: RegExpExecArray | null;
   while ((m = regex.exec(text)) !== null) {
-    // 取 |alias 之前的部分
-    const name = m[1].split('|')[0].trim();
-    if (name) links.add(name);
+    const { name, path } = parseWikilinkTarget(m[1]);
+    if (!name) continue;
+    const key = `${path || ''}/${name.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    refs.push({ name, path });
   }
-  return Array.from(links);
+  return refs;
 }
 
 /**
  * 将 Markdown 渲染为 HTML：
  * 1. ![[image.png]] 嵌入 → <img>
- * 2. [[Page Name]] → <a href="#Page Name" class="ag-link">（Renderer 阶段再解析为真实路径）
+ * 2. [[Page]] / [[path/Page]] / [[Page|alias]] → <a href="#..." class="ag-link">
+ *    （锚点保留路径前缀，显示文本为 name 或 alias；Renderer 再解析为真实路径）
  * 3. marked 渲染
  */
 export function renderMarkdown(markdown: string): string {
@@ -40,18 +61,16 @@ export function renderMarkdown(markdown: string): string {
       `<img class="ag-img" src="assets/${src.trim()}" alt="" loading="lazy">`,
   );
 
-  // [[Page Name|alias]] → [alias](#Page Name)
-  processed = processed.replace(
-    /\[\[([^\]|]+)\|([^\]]+)\]\]/g,
-    (_, name: string, alias: string) =>
-      `[${alias.trim()}](#${encodeURIComponent(name.trim())})`,
-  );
-
-  // [[Page Name]] → [Page Name](#Page Name)
+  // [[...]] → [display](#anchor)
+  // 一条正则同时覆盖 alias / 路径前缀两种形式，避免重复匹配
   processed = processed.replace(
     /\[\[([^\]]+)\]\]/g,
-    (_, name: string) =>
-      `[${name.trim()}](#${encodeURIComponent(name.trim())})`,
+    (_, target: string) => {
+      const { name, path, alias } = parseWikilinkTarget(target);
+      const display = alias || name;
+      const anchor = path ? `${path}/${name}` : name;
+      return `[${display}](#${encodeURIComponent(anchor)})`;
+    },
   );
 
   const html = marked.parse(processed, { async: false }) as string;

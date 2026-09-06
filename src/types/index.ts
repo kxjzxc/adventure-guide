@@ -8,6 +8,16 @@
 
 export type WorldKind = 'real' | 'historical' | 'virtual';
 
+/**
+ * Wikilink 引用 — 可带路径前缀（places / content）消除同名歧义。
+ * 例如 [[places/Tokyo]] 解析为 { name: 'Tokyo', path: 'places' }，
+ * [[Tokyo]] 解析为 { name: 'Tokyo' }（按优先级匹配）。
+ */
+export interface WikilinkRef {
+  name: string;
+  path?: string;
+}
+
 /** World — 最高层级领域概念，由空间、时间、内容共同描述 */
 export interface World {
   id: string;
@@ -40,8 +50,8 @@ export interface Place {
   bodyHtml?: string;
   /** 原始 Markdown 正文 */
   bodyRaw?: string;
-  /** 页面中引用的其它条目名（[[wikilink]]） */
-  links?: string[];
+  /** 页面中引用的其它条目（[[wikilink]]） */
+  links?: WikilinkRef[];
   /** 反向引用：哪些条目链接到了这里 */
   backlinkIds?: string[];
 }
@@ -87,8 +97,8 @@ export interface ContentItem {
   imageUrl?: string;
   tags: string[];
   readingMinutes?: number;
-  /** 页面中引用的其它条目名 */
-  links: string[];
+  /** 页面中引用的其它条目 */
+  links: WikilinkRef[];
   /** 反向引用 */
   backlinkIds: string[];
 }
@@ -174,12 +184,20 @@ export interface ParsedVault {
   adventures: Adventure[];
 }
 
-/** Storage — 抽象文件系统，用于写输出 */
+/**
+ * Storage — 抽象文件系统，负责输出目录的完整生命周期：
+ *   初始化、读写、清理、列举。
+ * Builder 与 Renderer 通过 Storage 写输出，不直接操作底层文件系统。
+ */
 export interface IStorage {
   readonly name: string;
   save(filePath: string, content: Buffer | string): Promise<void>;
   read(filePath: string): Promise<Buffer>;
   exists(filePath: string): Promise<boolean>;
+  /** 清空根目录，可保留指定的顶层条目（如 'assets' 用于增量图片处理） */
+  clean(exclusions?: string[]): Promise<void>;
+  /** 递归列举根目录下所有文件（相对路径） */
+  list(): Promise<string[]>;
 }
 
 /** Renderer — 将领域对象渲染为静态网站 */
