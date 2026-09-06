@@ -70,8 +70,11 @@ export class Builder {
     log(`  内容: ${vault.contents.length}`);
     log(`  冒险: ${vault.adventures.length}`);
 
-    // 3. 校验 Adventure 路径一致性（结构性错误 → build 失败）
+    // 3. 校验领域引用完整性（结构性错误 → build 失败）
+    //    覆盖 Adventure 路径一致性 + Domain Reference Validation：
+    //    World/Place/Route/Content 之间的引用存在性与 worldId 一致性
     this.validateAdventures(vault);
+    this.validateReferences(vault);
 
     if (dryRun) {
       console.log(`\n[Dry Run] 解析完成：`);
@@ -189,6 +192,85 @@ export class Builder {
     if (errors.length > 0) {
       throw new Error(
         `Adventure 结构校验失败（${errors.length} 项 error）:\n${errors.map((e) => `  • ${e}`).join('\n')}`,
+      );
+    }
+  }
+
+  /**
+   * Domain Reference Validation — 统一校验领域对象之间的引用完整性。
+   *
+   * 覆盖三类引用（不依赖是否被 Adventure 引用）：
+   *   1. Object → World：所有对象的 worldId 必须指向已存在的 World
+   *   2. Route → Place：fromPlaceId / toPlaceId 必须存在，且 worldId 与 Route 一致
+   *   3. Content → Place：placeId 若存在则 Place 必须存在，且 worldId 与 Content 一致
+   *
+   * 另外强化「ID 在 Vault 内全局唯一」规则：
+   *   - Place 之间、Content 之间不允许重复 ID
+   *   - Place 与 Content 不允许跨类型同 ID（避免 backlink 渲染按类型猜时歧义）
+   *
+   * 全部为 error：存在性问题或一致性违反即终止 build，避免生成孤立对象或跨 World 串内容。
+   */
+  private validateReferences(vault: ParsedVault): void {
+    const worldIds = new Set(vault.worlds.map((w) => w.id));
+    const placeMap = new Map(vault.places.map((p) => [p.id, p]));
+    const errors: string[] = [];
+
+    // 1. Object → World 完整性
+    const checkWorld = (kind: string, id: string, worldId: string) => {
+      if (!worldIds.has(worldId)) {
+        errors.push(`${kind} "${id}" 引用了不存在的 world "${worldId}"`);
+      }
+    };
+    for (const p of vault.places) checkWorld('Place', p.id, p.worldId);
+    for (const r of vault.routes) checkWorld('Route', r.id, r.worldId);
+    for (const c of vault.contents) checkWorld('Content', c.id, c.worldId);
+    for (const a of vault.adventures) checkWorld('Adventure', a.id, a.worldId);
+
+    // 2. Route → Place 端点（存在性 + World 一致性）
+    for (const r of vault.routes) {
+      const from = placeMap.get(r.fromPlaceId);
+      if (!from) {
+        errors.push(`Route "${r.id}": fromPlaceId "${r.fromPlaceId}" 不存在`);
+      } else if (from.worldId !== r.worldId) {
+        errors.push(`Route "${r.id}" 属于 world "${r.worldId}"，但 from Place "${r.fromPlaceId}" 属于 world "${from.worldId}"`);
+      }
+      const to = placeMap.get(r.toPlaceId);
+      if (!to) {
+        errors.push(`Route "${r.id}": toPlaceId "${r.toPlaceId}" 不存在`);
+      } else if (to.worldId !== r.worldId) {
+        errors.push(`Route "${r.id}" 属于 world "${r.worldId}"，但 to Place "${r.toPlaceId}" 属于 world "${to.worldId}"`);
+      }
+    }
+
+    // 3. Content → Place（存在性 + World 一致性）
+    for (const c of vault.contents) {
+      if (!c.placeId) continue;
+      const place = placeMap.get(c.placeId);
+      if (!place) {
+        errors.push(`Content "${c.id}": 关联的 place "${c.placeId}" 不存在`);
+      } else if (place.worldId !== c.worldId) {
+        errors.push(`Content "${c.id}" 属于 world "${c.worldId}"，但 place "${c.placeId}" 属于 world "${place.worldId}"`);
+      }
+    }
+
+    // 4. ID 全局唯一（Place 内 / Content 内 / Place×Content 跨类型）
+    const seenIds = new Map<string, 'place' | 'content'>();
+    const recordId = (kind: 'place' | 'content', id: string) => {
+      const prev = seenIds.get(id);
+      if (prev && prev !== kind) {
+        errors.push(`ID "${id}" 同时存在于 ${prev} 与 ${kind}（ID 必须全局唯一）`);
+      } else if (prev === kind) {
+        errors.push(`ID "${id}" 在 ${kind} 中重复`);
+      } else {
+        seenIds.set(id, kind);
+      }
+    };
+    for (const p of vault.places) recordId('place', p.id);
+    for (const c of vault.contents) recordId('content', c.id);
+
+    if (errors.length > 0) {
+      throw new Error(
+        `领域引用校验失败（${errors.length} 项 error）:\n${errors.map((e) => `  • ${e}`).join('\n')}`,
       );
     }
   }

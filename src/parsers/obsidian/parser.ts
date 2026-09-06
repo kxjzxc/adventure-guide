@@ -127,7 +127,7 @@ export class ObsidianParser implements IParser {
         worldId: String(data.world || 'earth-present'),
         fromPlaceId: String(data.from || data.from_place || ''),
         toPlaceId: String(data.to || data.to_place || ''),
-        path: this.parsePath(data),
+        path: this.parsePath(data, `Route "${id}"`),
         distanceLabel: data.distance ? String(data.distance) : undefined,
         highlights: this.parseTags(data.highlights),
         bodyHtml,
@@ -250,35 +250,46 @@ export class ObsidianParser implements IParser {
     return { lat, lng };
   }
 
-  private parsePath(data: Record<string, unknown>): Coordinates[] | undefined {
+  private parsePath(data: Record<string, unknown>, context: string): Coordinates[] | undefined {
     const raw = data.path;
     if (!raw) return undefined;
-    if (Array.isArray(raw)) {
-      return (raw as unknown[])
-        .map((p) => {
-          if (typeof p === 'string') {
-            const [lat, lng] = p.split(',').map((n) => Number(n.trim()));
-            return { lat, lng };
-          }
-          const obj = p as Record<string, unknown>;
-          return {
-            lat: Number(obj.lat ?? obj.latitude),
-            lng: Number(obj.lng ?? obj.lon ?? obj.longitude),
-          };
-        })
-        .filter((c) => !isNaN(c.lat) && !isNaN(c.lng));
+
+    const toCoord = (val: unknown): Coordinates | undefined => {
+      if (typeof val === 'string') {
+        const [lat, lng] = val.split(',').map((n) => Number(n.trim()));
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+        return { lat, lng };
+      }
+      const obj = val as Record<string, unknown>;
+      const lat = Number(obj.lat ?? obj.latitude);
+      const lng = Number(obj.lng ?? obj.lon ?? obj.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+      return { lat, lng };
+    };
+
+    const coords: Coordinates[] = [];
+    let dropped = 0;
+    const items: unknown[] = Array.isArray(raw) ? (raw as unknown[]) : String(raw).split(';');
+
+    for (const item of items) {
+      const c = toCoord(item);
+      if (c) {
+        // 范围校验（缺失或越界视为非法点，warning 后丢弃）
+        if (c.lat < -90 || c.lat > 90 || c.lng < -180 || c.lng > 180) {
+          dropped++;
+          continue;
+        }
+        coords.push(c);
+      } else {
+        dropped++;
+      }
     }
-    // 字符串格式 "lat,lng;lat,lng;..."
-    if (typeof raw === 'string') {
-      return raw
-        .split(';')
-        .map((pair) => {
-          const [lat, lng] = pair.split(',').map((n) => Number(n.trim()));
-          return { lat, lng };
-        })
-        .filter((c) => !isNaN(c.lat) && !isNaN(c.lng));
+
+    if (dropped > 0) {
+      console.warn(`⚠ ${context}: Route.path 有 ${dropped} 个非法点已丢弃（缺失/非数字/越界）`);
     }
-    return undefined;
+
+    return coords.length >= 2 ? coords : undefined;
   }
 
   private parseTags(value: unknown): string[] {
